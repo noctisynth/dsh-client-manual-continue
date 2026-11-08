@@ -10,7 +10,7 @@
 
 ## 数据流与职责
 
-已提交会话事件 → Host 资格投影 → Client 状态 → 真实人类点击 → 授权命令入口 → Host 复核与去重 → 插件来源消息 + followup → 原生 inbox/执行流程 → Chat 通知回执。
+已提交会话事件 → Host 资格投影 → Client 状态 → 真实人类点击 → 受信 Remote 操作入口 → Host 复核与去重 → 插件来源消息 + followup → 原生 inbox/执行流程 → Chat 通知回执。
 
 | 职责 | 范围 |
 |---|---|
@@ -24,10 +24,10 @@
 ## Host 操作约束
 
 - 以持久化终止事件为候选依据，正常完成或只有开始没有结束记录不得推断可恢复。具体错误策略由 RFC-001 确认。
-- 通过受信命令上下文取得 Agent 和取消信号，校验请求结构、大小、requestId、期望终止序列及会话范围；客户端字段不能证明人类授权。
+- 必须经正式受信调用上下文取得真实调用者、准确 Agent 和取消信号，校验请求结构、大小、requestId、期望终止序列及会话范围；客户端字段不能证明人类授权。EVIDENCE-004 已观察到现有命令 invocation 不携带 peer，不使用 commands → followup。后续正式 Remote 方法使用普通 JSON 会话身份参数，先检查真实 invocation 与 owner 权限，再 live-only 查准确 Agent/Session；不使用会在 guard 前 cold-resume 的 Agent lookup，不注册模型工具。权限无法证明的非 owner 调用拒绝，来源元数据不参与授权。
 - 命令授权不自动等于模型请求授权；必须验证调用者可触发模型执行，尤其是仅有命令权限的访问者。
 - 每会话串行化本插件操作；跨异步等待复核候选、Agent 身份、writer 所有权、inbox、待处理交互及旧活动是否排空。
-- status 为 idle 不足以证明全部收尾完成；需要等待时使用正式 quiescence 契约，随后再复核。插件锁不能阻止其他生产者，不承诺跨生产者比较并交换。
+- status 为 idle 不足以证明全部收尾完成；当前 whenIdle 等待已观察到的驱动/维护活动，但不是 inbox 空或独占准入证明；runMaintenance 是可尝试仅空闲进入的正式原语，待 Host 路线确认后复核实际组合。不能编造 isQuiescent 或凭延迟猜测收尾。插件锁不能阻止其他生产者，不承诺跨生产者比较并交换。
 - 由 Host 创建稳定消息身份与自有来源，拟用 kind 为 plugin:manual-continue，经 createUserMessage 与 followup 投递，不手工 append 冒充准入；不冒用 user、goal、retry 或旧通用 plugin 包装。
 - 元数据仅保留可持久化的操作关联与候选信息；正文说明继续未完成工作、复用已有结果、先核实未知外部副作用。来源不是模型高权限指令。
 - 结果用可辨别联合区分 accepted、already-accepted、stale、busy/draining、pending-input/pending-interaction、forbidden/unavailable、outcome-unknown；这些是插件拟议结果，不是现有宿主枚举。
@@ -45,7 +45,10 @@
 ## TypeScript 工程基线
 
 - 自有代码及测试全部 TypeScript/TSX；采用 ESM。Host 与 Client 分开 tsconfig 环境，strict 和 noEmit 开启，使用宿主真实类型；不让浏览器模块依赖 Node 或宿主内部实现。
-- 构建使用 tsdown/Rolldown/Oxc，tsrs 负责类型检查，Biome 负责格式与推荐 lint；具体可用版本、依赖锁文件及脚本在开始实际代码实现时核实并提交。本轮不创建空源文件、不安装依赖、不宣称工具检查已通过。
+- 构建使用 tsdown/Rolldown/Oxc，tsrs 负责类型检查，Biome 负责格式与推荐 lint。本次建立实际源码、测试及工程入口，精确锁定实际使用版本；tsrs 实验兼容问题单列证据，不静默替换检查器或关闭诊断。
+- 已读取的目标 Client Slot 树不含独立主按钮扩展点；当前不注册任何 UI 替换，也不提供旁置入口。实现基于真实 SessionEvent 的纯资格事实折叠，按 RFC-001 最新确认对所有 error、明确 user 停止、max-tokens 和 interrupted 生成终止候选；候选不证明当前可安全执行。其它原因保留历史但不生成候选。
+- 新轮次、已提交用户消息或任意生产者的 inbox 插入使旧候选失效；后续移除竞争消息不复活旧候选。候选仅表示终止原因符合规则，绝不代表当前调用者授权、无竞争或可直接触发模型。
+- 工程中使用已锁定公开包的正式类型时，须与目标运行构建的反射/实现比对；类型包相同版本不等于实际 Loader 兼容。未核实的 Host 授权及收尾能力不以项目自建接口伪装可用适配。
 - Biome 使用单引号及 JSX 单引号、2 空格、100 列、按需分号。覆盖所有自有源文件、测试和配置，排除生成物；若使用 Tailwind 4，再配置实际样式入口、指令解析与类名排序，不预设不存在的入口。
 - 外部输入运行时校验后收窄，协议结果与错误采用明确类型；移除无用导入、参数与可避免断言，不用全局禁用 lint、ts-ignore 或类型逃逸掩盖契约缺口。
 - React 保持宿主运行时共享、Hook 依赖、取消及会话切换安全；按实际 UI 需求使用 Base UI、shadcn 派生组件和隔离 Tailwind 样式，保留许可。
@@ -59,7 +62,7 @@ Semifold 是版本意图、版本更新、变更日志及发布编排的唯一�
 - 使用 smif config sync --check 核对包发现与配置，smif status 审阅发布计划；执行变更前可使用 smif version --dry-run 预览。
 - 实际版本、变更日志及 changeset 消费只由经授权的 smif version 执行；不手动修改版本以绕过计划，也不把发布成功等同功能验收。
 - npm 注册表存在性检查和 npm 发布命令由 Semifold 的 Node.js resolver 配置。发布参数使用 provenance 与 public access；需要适用的发布环境及授权，不能据此认为本轮执行了发布。
-- 当前尚无产品实现，包以 private 标记阻止注册表发布，保留版本管理与计划能力。首次公开发布前须完成构建/验证入口、产物范围及许可核对、支持范围与真实组合验收，并经明确授权移除 private 标记。
+- 当前仅有独立逻辑与工程实现，尚无安全接通的插件入口；包保留 private，保留版本管理与计划能力。首次公开发布前须完成构建/验证入口、产物范围及许可核对、支持范围与真实组合验收，并经明确授权移除 private 标记。
 - 不生成自动推送、版本更新或发布的 CI 工作流。工具安装依据官方说明；当前配置验证所用版本和实际结果由 EVIDENCE-003 记录，不把工具实现细节加入项目上下文。
 
 ## 分发边界

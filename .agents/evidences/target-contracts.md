@@ -16,7 +16,7 @@
 | Gateway 授权 | Gateway 在派生带 invocation 的服务 Context 前，按 endpoint、资源和已校验参数授权非 owner。commands/execute 的权限不蕴含 session/prompt。注册命令时捕获的 Context 和 Agent Context 不自动得到该次 Remote 的 invocation。 |
 | 跨动作权限 | 真正 Remote 服务方法可读取调用 Context 的 invocation.peer；PeerScope 无 can/check 方法。remoteAccess.allows 只过滤当前 endpoint，缺少 invocation 时返回 true，不能用于命令 handler 跨动作检查。remoteAccess.decide 明确为 Gateway-only。未找到适用于本需求的正式无副作用 session/prompt 复核入口。 |
 | 备选调用 | Gateway.invoke 可保留原 peer 调现有 session/prompt，静态推断会重新授权准确会话；该操作会真实发送，不是权限探测，且现有 prompt 构造 user/rpcId 来源，不能同时满足插件来源通知。本次没有调用。 |
-| Agent 与收尾 | followup 为 next-turn 入队并唤醒；inject 为 next-step、不唤醒。实际 Agent 有 whenIdle，没有观察到 isQuiescent/whenQuiescent。status idle 也涵盖 maintenance；whenIdle 追踪稳定活动结束，不保证 inbox 空、某一输入完成或互斥提交。 |
+| Agent 与收尾 | followup 为 next-turn 入队并唤醒；inject 为 next-step、不唤醒。实际 Agent 有 whenIdle，没有观察到 isQuiescent/whenQuiescent。status idle 也涵盖 maintenance；whenIdle 等待已观察到的 running/maintenance 活动并追踪替换后的活动，但不保证 inbox 空、某一输入完成或互斥提交，也不能阻止返回后启动新维护。 |
 | 消息与 inbox | createUserMessage 生成新稳定身份、role:user、深冻结的内容及来源，不授权、不发送、不持久化。inbox nextTurn/nextStep 为正式状态；变动同步记录 agent/inbox/spliced。claim 在异步准入之前，移出 inbox 不等于模型已收到。 |
 | 待处理交互 | getPendingRemoteEvents 只提供未结算转发 Remote 事件的名称及 Agent 关联元数据，无正文和变更通知；不能证明所有业务交互已排空。 |
 | 所有权与持久化 | SessionPersistence.open(write) 原子取得单写所有权，AgentLoop 创建/恢复先持有 writer；不得为既有 live Agent 再抢 writer 或替换 Session。whenIdle 不是 flush；命令回执也不是持久化证明。跨进程保证还取决于具体 persistence provider。 |
@@ -24,6 +24,16 @@
 | TypeScript | 安装 ASAR 中实际尝试读取的若干声明不存在，不能凭 manifest 的 types 字段声称 SDK 完整。公开 npm 包的同版声明可读取，作为开发依赖锁定；必须与目标运行反射核对，不推定二进制等价。 |
 
 安装实现复核集中于 dsh-commands、dsh-api-gateway、dsh-api-remote-access、dsh-typert-protocol、dsh-api-session-controller、dsh-agent-loop、dsh-llm；独立只读核验结论与上述安全边界一致。
+
+## 正式替代路线的补充核对
+
+自有正式 Remote 服务方法可要求真实 invocation 存在且其 peer.principal.kind 为 owner，并拒绝所有非 owner。目标 Gateway 对 owner 跳过资源/action 拒绝，因此该限制在当前 ACL 语义上可满足模型执行权限要求；不能使用 principalOf 的 undefined 结果冒充 owner。该路线不是 commands handler 方案，也不证明 owner 操作必定来自真实人类点击，仍需 Client 动作与不可供模型调用的边界。这条已核实技术路线只能证明 owner 连接的模型执行权限，不构成受限远程访客的兼容承诺；需求与采用方式由 RFC-001、SPEC-001 维护。Gateway 在方法体之前会做 receiver Context 和参数 lookup 解析，因此拟议入口不得声明会 cold-resume 的 Agent lookup 或 RemoteScope；应使用普通 JSON 身份参数，先验证真实 owner invocation，再仅查找既有 live Agent/Session，避免拒绝前发生会话激活。
+
+owner 只证明 Remote ACL 权限，不等于不可伪造的人类手势证明。isTrusted 只能约束本插件可信 Client 的动作触发；不暴露模型工具也不能防范持 owner 凭据的任意客户端或高权限自动化。不得把普通请求中的手势字段写成 Host 已验证真实人类授权。
+
+runMaintenance 是已公开的 Agent 原语，仅在真实 phase idle 时进入；其任务内同步复核并 followup 会将 wake 延后至 maintenance finally。它可避免仅凭 status idle 漏检已开始维护的风险，但不是所有消息生产者之间的全局事务或可防止同步重入的锁。上述均为静态契约可行性，未经真实组合验证。
+
+安装运行包未包含 generator，不意味着外部工程无法获得官方生成工具；已从公开 registry 确认同版 dsh-typert-generator 存在。新增正式 Remote 服务仍需单独核对其生成物与目标 Loader 契约，不能发明远程端点或使用宽松 fallback 冒充生产 codec。
 
 ## 结论边界
 

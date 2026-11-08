@@ -5,11 +5,36 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
+  "packageManager": "pnpm@11.28.5",
   "scripts": {
+    "typecheck": "tsrs --project tsconfig.host.json && tsrs --project tsconfig.client.json",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "node --test --test-isolation=none test/*.test.ts",
+    "build": "tsdown",
+    "check": "tsrs --project tsconfig.host.json && tsrs --project tsconfig.client.json && biome check . && node --test --test-isolation=none test/*.test.ts && tsdown",
     "changeset": "smif commit",
     "release:check": "smif config sync --check",
     "release:status": "smif status",
     "release:version": "smif version",
     "release:publish": "smif publish"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.6",
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-agent": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-api-gateway": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-attachment": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-package-manifest": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-scope": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-session": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-session-projection": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-system-prompt": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-typert-generator": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.2-rc.1",
+    "@types/node": "24.10.0",
+    "tsdown": "0.23.7",
+    "tsrs": "0.23.0-ts7.1.0-beta"
   }
 }

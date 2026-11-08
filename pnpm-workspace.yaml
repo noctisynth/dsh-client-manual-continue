@@ -1,0 +1,6 @@
+packages:
+  - .
+storeDir: .inspection/pnpm-store
+cacheDir: .inspection/pnpm-cache
+nodeLinker: hoisted
+autoInstallPeers: false
