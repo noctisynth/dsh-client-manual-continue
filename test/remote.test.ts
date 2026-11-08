@@ -4,10 +4,11 @@ import test from 'node:test'
 import type { RemoteResult, TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 import { TYPERT_REMOTE } from 'dsh-client-manual-continue/remote'
 import { TYPERT } from 'dsh-client-manual-continue/typert'
-import type { ContinueResult } from '../src/shared/protocol.ts'
+import type { ContinueAvailability, ContinueResult } from '../src/shared/protocol.ts'
 import { isContinueRequest } from '../src/shared/protocol.ts'
 
 const request = { sessionId: 'offline', requestId: 'offline_request_001', terminalSeq: 1, turn: 1 }
+const availability = TYPERT_REMOTE.methods['manualContinue/availability']
 const submit = TYPERT_REMOTE.methods['manualContinue/submit']
 const reconcile = TYPERT_REMOTE.methods['manualContinue/reconcile']
 
@@ -15,17 +16,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-test('official artifacts publish exactly the two direct JSON business operations', () => {
+test('official artifacts publish three direct operations with zero JSON fields for availability', () => {
   assert.equal(TYPERT_REMOTE.package, 'dsh-client-manual-continue')
   assert.deepEqual(Object.keys(TYPERT_REMOTE.methods).sort(), [
+    'manualContinue/availability',
     'manualContinue/reconcile',
     'manualContinue/submit',
   ])
-  assert.equal(TYPERT_REMOTE.descriptors.length, 2)
+  assert.equal(TYPERT_REMOTE.descriptors.length, 3)
   for (const descriptor of TYPERT_REMOTE.descriptors) {
     assert.equal(descriptor.invocation.kind, 'direct')
-    assert.equal(descriptor.parameters.length, 1)
     assert.equal(descriptor.cancellation?.parameter, 'signal')
+    if (descriptor.id === availability.id) {
+      assert.equal(descriptor.parameters.length, 0)
+      continue
+    }
+    assert.equal(descriptor.parameters.length, 1)
     const parameter = descriptor.parameters[0]
     assert.ok(parameter)
     assert.equal(parameter.source, 'json')
@@ -45,10 +51,14 @@ test('consumer methods share the actual generated descriptors and cached strict 
   assert.deepEqual(reconcile.input({ strict: true }).create().parse({ request }), { request })
 })
 
-test('generated invocation forwards cancellation outside JSON to both Client methods', async () => {
+test('generated invocation forwards cancellation outside JSON to all three Client methods', async () => {
   const controller = new AbortController()
   const seen: (AbortSignal | undefined)[] = []
   const result: RemoteResult<ContinueResult> = { ok: true, value: { kind: 'canceled' } }
+  const availabilityResult: RemoteResult<ContinueAvailability> = {
+    ok: true,
+    value: { kind: 'available' },
+  }
   const remote: TypertClientRemote = {
     $mount() {
       return Promise.resolve(() => Promise.resolve())
@@ -57,6 +67,10 @@ test('generated invocation forwards cancellation outside JSON to both Client met
       return () => {}
     },
     manualContinue: {
+      availability(signal) {
+        seen.push(signal)
+        return Promise.resolve(availabilityResult)
+      },
       submit(input, signal) {
         assert.deepEqual(input, request)
         seen.push(signal)
@@ -69,9 +83,35 @@ test('generated invocation forwards cancellation outside JSON to both Client met
       },
     },
   }
+  assert.deepEqual(await availability.invoke(remote, {}, controller.signal), availabilityResult)
   assert.deepEqual(await submit.invoke(remote, { input: request }, controller.signal), result)
   assert.deepEqual(await reconcile.invoke(remote, { request }, controller.signal), result)
-  assert.deepEqual(seen, [controller.signal, controller.signal])
+  assert.deepEqual(seen, [controller.signal, controller.signal, controller.signal])
+})
+
+test('availability has an empty strict input and no session admission or completion result', () => {
+  const input = availability.input({ strict: true }).create()
+  assert.deepEqual(input.parse({}), {})
+  for (const value of [
+    { sessionId: 'offline' },
+    { principal: { kind: 'owner' } },
+    { signal: {} },
+  ]) {
+    assert.throws(() => input.parse(value))
+  }
+  const result = availability.result.create()
+  for (const kind of ['available', 'forbidden', 'unavailable', 'canceled'] as const) {
+    assert.deepEqual(result.parse({ kind }), { kind })
+  }
+  for (const kind of [
+    'accepted',
+    'already-accepted',
+    'model-started',
+    'completed',
+    'outcome-unknown',
+  ]) {
+    assert.throws(() => result.parse({ kind }))
+  }
 })
 
 test('strict Client codec rejects untrusted extra authority and malformed JSON field types', () => {

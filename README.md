@@ -6,15 +6,15 @@
 
 工程导航为 DESIGN-001《工程上下文导航》，任务状态以 TODO-001《实施待办》为准，全局规则由 AGENTS《项目协作规范》维护。需求、技术决策、事实与证据按编号查阅。
 
-当前已实现资格与对账逻辑、正式 Host 操作及 strict Remote 构建产物，完成离线风险验证。仍未完成 Client 原位适配、真实 Loader 与人类点击闭环，不是可安装交付的完整插件。当前目标缺少独立主按钮扩展点，页面适配取舍尚未获明确确认；契约、核心与 Host 验证分别见 EVIDENCE-004、EVIDENCE-005、EVIDENCE-006。
+当前已实现资格与对账逻辑、受信 Host 操作、strict Remote 契约，以及用户已明确确认的页面结构兼容 Client。它通过正式会话 Slot 锚定当前实例，在精确原位显示续跑控件并隐藏原按钮；结构、输入、权限、连接或生命周期不满足时保留/还原原界面。源码与离线测试不是完整插件验收：真实 Loader、支持构建的浏览器交互及模型可见通知闭环尚未通过。契约、核心与初版 Host 证据见 EVIDENCE-004 至 EVIDENCE-006，Client 与分发证据见 EVIDENCE-007。
 
 分发目标是在声明且实际验证过的未修改 DSH 构建上安装后开箱即用，不做本机路径或特定会话适配。缺少能力或无法确认页面兼容性时保留宿主界面，不宣称任意 DSH 版本均兼容。
 
 ## 本地开发
 
-使用已锁定的 pnpm 与 Node.js 24.21.0 验证，执行 pnpm install --frozen-lockfile 后通过 pnpm run check 运行类型检查、Biome、离线测试与构建。也可分别执行 typecheck、lint、test、build 脚本。Host 与 Client 环境类型分开；当前没有 Client UI 模块，不预建空适配器。
+使用已锁定的 pnpm 与 Node.js 24.21.0 验证，执行 pnpm install --frozen-lockfile 后通过 pnpm run check 运行类型检查、Biome、离线测试与构建。也可分别执行 typecheck、lint、test、build 脚本。Host 为 Node 环境，生产 Client 为 DOM 环境，Client 测试使用单独的 Node/DOM 程序，避免同名 Context 服务混入生产环境。构建顺序为 Host → 官方 Remote 生成 → 原生 lazy-CJS Client；React 由宿主模块表共享，不捆绑第二份。
 
-测试使用离线 Session、消息与真实 SDK 注册表，并以明确的测试 Agent/Gateway 对象验证 Host 操作；不创建实际模型驱动、不安装插件或发送模型请求。构建输出实际 Host 入口与官方生成的 Remote 契约；只有这些产物不表示真实 Loader、浏览器或通知闭环已通过。
+测试使用离线 Session、消息与真实 SDK 注册表、明确的测试 Agent/Gateway/transport，以及小型 DOM fixture；脚本 click 不视为人类手势。不安装插件、不运行当前 GUI、不发送真实模型请求。候选兼容基线为 DSH 0.2.2-rc.1，另受具体页面结构、完整输入契约和能力检查限制；这不是该版本所有构建已经验收的支持声明。实际安装、当前 GUI 和真实续跑需单独授权。
 
 Host 只接受可核实权限的正式调用上下文，不把来源或请求字段当授权。已接受、checkpoint 确认、模型已开始和任务完成是不同状态；未知结果只对账，不自动补投。
 

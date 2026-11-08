@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "title": "Manual continuation",
+    "description": "Continue an interrupted task from its original action position without replacing the draft or bypassing permissions."
+  },
+  "continue": "Continue unfinished work (adds model-visible input)",
+  "checking": "Check whether the continuation input was accepted",
+  "pending": "Waiting for continuation admission",
+  "unknown": "Acceptance could not be confirmed. No additional continuation input was sent. Activate again only to reconcile.",
+  "accepted": "Continuation input accepted. This does not mean the model has started or the task is complete.",
+  "acceptedUnconfirmed": "Continuation input observed; its durability checkpoint is unconfirmed. No additional input was sent.",
+  "invalid": "Continuation is unavailable because the request could not be constructed safely.",
+  "denied": "Continuation was not admitted: {reason}",
+  "reason.forbidden": "the caller is not authorized",
+  "reason.invalid-request": "the request is invalid",
+  "reason.unavailable": "the required live capability is unavailable",
+  "reason.stale": "the terminal candidate has changed",
+  "reason.busy": "an operation is already in progress",
+  "reason.pending-input": "another input has priority",
+  "reason.pending-interaction": "a user interaction must be resolved first",
+  "reason.canceled": "this request was canceled"
+}

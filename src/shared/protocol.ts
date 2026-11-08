@@ -6,6 +6,11 @@ export interface ContinueRequest {
   readonly turn: number
 }
 
+/** Caller-level permission/connection probe, never session qualification or input admission. */
+export type ContinueAvailability = {
+  readonly kind: 'available' | 'forbidden' | 'unavailable' | 'canceled'
+}
+
 export type ContinueResult =
   | {
       readonly kind: 'accepted' | 'already-accepted'

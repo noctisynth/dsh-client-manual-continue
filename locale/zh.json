@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "title": "手动续跑",
+    "description": "在原主按钮位置手动继续中断任务，保留草稿，不绕过原权限与审批。"
+  },
+  "continue": "继续未完成工作（新增模型可见输入）",
+  "checking": "核对续跑输入是否已被接受",
+  "pending": "正在等待续跑准入",
+  "unknown": "无法确认是否已接受，没有再次发送续跑输入。再次操作只核对已有接受结果。",
+  "accepted": "续跑输入已接受，不代表模型已经开始或任务已经完成。",
+  "acceptedUnconfirmed": "已观察到续跑输入，但持久化 checkpoint 尚未确认，没有再次发送。",
+  "invalid": "无法安全构造续跑请求，当前不可续跑。",
+  "denied": "本次续跑未准入：{reason}",
+  "reason.forbidden": "当前调用者无权限",
+  "reason.invalid-request": "请求无效",
+  "reason.unavailable": "所需实时能力不可用",
+  "reason.stale": "终止候选已经变化",
+  "reason.busy": "已有操作正在进行",
+  "reason.pending-input": "其它输入优先",
+  "reason.pending-interaction": "须先处理等待中的用户交互",
+  "reason.canceled": "本次请求已取消"
+}

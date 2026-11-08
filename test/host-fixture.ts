@@ -184,14 +184,18 @@ export class TestAgent implements Agent {
 /** Only the two Gateway reads used by the operation; not a real RPC/Loader validation. */
 class TestGateway extends Service {
   connected = true
+  clientReads = 0
+  pendingReads = 0
   pending: readonly PendingRemoteEventInfo[] = []
   constructor(ctx: Context) {
     super(ctx, 'typertGateway')
   }
   hasLiveClient(): boolean {
+    this.clientReads += 1
     return this.connected
   }
   getPendingRemoteEvents(): readonly PendingRemoteEventInfo[] {
+    this.pendingReads += 1
     return this.pending
   }
   block(sessionId: SessionId): void {
@@ -268,12 +272,17 @@ export async function fixture(t: TestContext, options: { flush?: boolean } = {})
     turn: 1,
     requestId: 'host_operation_0001',
   }
-  function receiver(method: 'submit' | 'reconcile', signal = peerAbort.signal, caller = peer) {
+  function receiver(
+    method: 'availability' | 'submit' | 'reconcile',
+    signal = peerAbort.signal,
+    caller = peer,
+  ) {
     const invocation: RemoteInvocation = {
       request: {
         namespace: 'manualContinue',
         method,
-        args: method === 'submit' ? { input: request } : { request },
+        args:
+          method === 'availability' ? {} : method === 'submit' ? { input: request } : { request },
       },
       service: 'manualContinue',
       peer: caller,

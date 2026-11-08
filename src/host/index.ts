@@ -8,14 +8,14 @@ import type { RemoteInvocation } from '@deepseek-ai/dsh-typert-protocol'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { ContinuationState } from '../shared/continuation.ts'
 import { terminalDisposition } from '../shared/continuation.ts'
-import type { ContinueRequest, ContinueResult } from '../shared/protocol.ts'
+import type { ContinueAvailability, ContinueRequest, ContinueResult } from '../shared/protocol.ts'
 import { isContinueRequest } from '../shared/protocol.ts'
 import type { ReceiptIdentity, ReceiptState } from '../shared/receipt.ts'
 import { reconcileReceipt } from '../shared/receipt.ts'
 import { createContinuationMessage } from './message.ts'
 import { qualificationDefinition, receiptDefinition } from './projection.ts'
 
-export type { ContinueRequest, ContinueResult } from '../shared/protocol.ts'
+export type { ContinueAvailability, ContinueRequest, ContinueResult } from '../shared/protocol.ts'
 
 export const inject: readonly string[] = [
   'agents',
@@ -60,6 +60,7 @@ function waitFor<T>(operation: Promise<T>, signal: AbortSignal): Promise<WaitRes
 
 /** The public business surface deliberately excludes implementation and framework internals. */
 export interface ManualContinueOperations {
+  availability(signal?: AbortSignal): ContinueAvailability
   submit(input: ContinueRequest, signal?: AbortSignal): Promise<ContinueResult>
   reconcile(request: ContinueRequest, signal?: AbortSignal): ContinueResult
 }
@@ -194,6 +195,21 @@ class ManualContinueService extends TypertRemoteService implements ManualContinu
       return { kind: 'outcome-unknown', requestId: request.requestId }
     }
     return null
+  }
+
+  /** Prove only this caller's permission/connection; never inspect or admit session work. */
+  @Remote
+  availability(signal?: AbortSignal): ContinueAvailability {
+    const invocation = this.caller('availability')
+    if (invocation === undefined) return { kind: 'forbidden' }
+    if (signal?.aborted || invocation.signal.aborted || invocation.peer.signal.aborted) {
+      return { kind: 'canceled' }
+    }
+    try {
+      return { kind: this.ctx.typertGateway.hasLiveClient() ? 'available' : 'unavailable' }
+    } catch {
+      return { kind: 'unavailable' }
+    }
   }
 
   /** Reconcile observed input only. This never enqueues or wakes an Agent. */

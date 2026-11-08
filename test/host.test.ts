@@ -9,6 +9,77 @@ import { deferred, fixture, ordinaryInput } from './host-fixture.ts'
 // Offline operation units: real Cordis/Session/Agent registries, a structural Agent and a
 // two-read Gateway double. These are not real Loader/Gateway or human-click acceptance tests.
 
+test('availability proves only the caller and connection, without live Agent work or log effects', async (t) => {
+  const f = await fixture(t)
+  const before = JSON.stringify(f.session.snapshotEvents())
+  await f.registration()
+  assert.equal(f.ctx.agents.get(f.agent.id), undefined)
+  assert.deepEqual(f.receiver('availability').availability(), { kind: 'available' })
+  assert.equal(JSON.stringify(f.session.snapshotEvents()), before)
+  assert.equal(f.gateway.clientReads, 1)
+  assert.equal(f.gateway.pendingReads, 0)
+  assert.equal(f.agent.whenIdleCalls, 0)
+  assert.equal(f.agent.maintenanceEntries, 0)
+  assert.equal(f.agent.followups, 0)
+  assert.equal(f.flushes, 0)
+  assert.equal(f.coldCalls, 0)
+})
+
+test('availability rejects absent, non-owner, and mismatched invocations before capability reads', async (t) => {
+  const f = await fixture(t)
+  const direct = f.ctx.get('manualContinue')
+  assert.ok(direct)
+  assert.deepEqual(direct.availability(), { kind: 'forbidden' })
+  const guest = { ...f.peer }
+  Object.defineProperty(guest, 'principal', { value: { kind: 'offline-guest' } })
+  assert.deepEqual(f.receiver('availability', undefined, guest).availability(), {
+    kind: 'forbidden',
+  })
+  assert.deepEqual(f.receiver('submit').availability(), { kind: 'forbidden' })
+  assert.equal(f.gateway.clientReads, 0)
+  assert.equal(f.gateway.pendingReads, 0)
+  assert.equal(f.agent.followups, 0)
+  assert.equal(f.flushes, 0)
+  assert.equal(f.coldCalls, 0)
+})
+
+test('availability fails closed on a disconnected Client or cancellation at each trusted boundary', async (t) => {
+  const f = await fixture(t)
+  f.gateway.connected = false
+  assert.deepEqual(f.receiver('availability').availability(), { kind: 'unavailable' })
+  f.gateway.connected = true
+  const methodAbort = new AbortController()
+  methodAbort.abort()
+  assert.deepEqual(f.receiver('availability').availability(methodAbort.signal), {
+    kind: 'canceled',
+  })
+  const carrierAbort = new AbortController()
+  carrierAbort.abort()
+  assert.deepEqual(f.receiver('availability', carrierAbort.signal).availability(), {
+    kind: 'canceled',
+  })
+  f.peerAbort.abort()
+  assert.deepEqual(f.receiver('availability').availability(), { kind: 'canceled' })
+  assert.equal(f.gateway.clientReads, 1)
+  assert.equal(f.agent.followups, 0)
+  assert.equal(f.flushes, 0)
+  assert.equal(f.coldCalls, 0)
+})
+
+test('availability retained across plugin unload loses its authority without changing history', async (t) => {
+  const f = await fixture(t)
+  const retained = f.receiver('availability')
+  const before = JSON.stringify(f.session.snapshotEvents())
+  await f.hostFiber.dispose()
+  assert.deepEqual(retained.availability(), { kind: 'forbidden' })
+  assert.equal(JSON.stringify(f.session.snapshotEvents()), before)
+  assert.equal(f.agent.followups, 0)
+  assert.equal(f.agent.whenIdleCalls, 0)
+  assert.equal(f.agent.maintenanceEntries, 0)
+  assert.equal(f.flushes, 0)
+  assert.equal(f.coldCalls, 0)
+})
+
 test('owner input uses plugin attribution and reports acceptance only after two barriers', async (t) => {
   const f = await fixture(t)
   const result = await f.receiver('submit').submit(f.request)

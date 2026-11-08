@@ -4,8 +4,9 @@
   "include": [
     "src/shared/**/*.ts",
     "src/host/**/*.ts",
-    "test/**/*.ts",
+    "test/*.ts",
     "scripts/**/*.ts",
-    "tsdown.config.ts"
+    "tsdown.config.ts",
+    "tsdown.client.config.ts"
   ]
 }

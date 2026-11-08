@@ -4,18 +4,12 @@ import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import { z } from 'zod'
 import type { ContinuationState, Terminal } from '../shared/continuation.ts'
 import { foldEvent, initialState, terminalDisposition } from '../shared/continuation.ts'
+import type { ManualContinueProjection } from '../shared/projection.ts'
 import { isRequestId } from '../shared/protocol.ts'
 import type { ReceiptState } from '../shared/receipt.ts'
 import { foldReceipt, initialReceiptState } from '../shared/receipt.ts'
 
-/** A historical terminal hint, never permission or a promise that input can be sent. */
-export interface ManualContinueProjection {
-  readonly candidate: {
-    readonly terminalSeq: number
-    readonly turn: number
-    readonly reasonKind: string
-  } | null
-}
+export type { ManualContinueProjection } from '../shared/projection.ts'
 
 export interface QualificationProjectionState extends ContinuationState {
   readonly sessionId: SessionId
@@ -24,12 +18,6 @@ export interface QualificationProjectionState extends ContinuationState {
 
 export interface ReceiptProjectionState extends ReceiptState {
   readonly inheritedEventCount: SessionLogOffset
-}
-
-declare module '@deepseek-ai/dsh-session-projection/types' {
-  interface SessionProjectionMap {
-    manualContinue: ManualContinueProjection
-  }
 }
 
 const safeInteger = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
