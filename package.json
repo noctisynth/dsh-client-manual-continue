@@ -1,0 +1,15 @@
+{
+  "name": "dsh-client-manual-continue",
+  "version": "0.0.0",
+  "description": "Manual continuation plugin for DSH",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "changeset": "smif commit",
+    "release:check": "smif config sync --check",
+    "release:status": "smif status",
+    "release:version": "smif version",
+    "release:publish": "smif publish"
+  }
+}

@@ -51,6 +51,17 @@
 - React 保持宿主运行时共享、Hook 依赖、取消及会话切换安全；按实际 UI 需求使用 Base UI、shadcn 派生组件和隔离 Tailwind 样式，保留许可。
 - 实际实现后提供可复现的类型、lint、关键测试与构建入口；类型成功或独立组件成功不能替代正式 Loader 组合和人类点击闭环。检查深度与变更风险相称。
 
+## 版本与发布
+
+Semifold 是版本意图、版本更新、变更日志及发布编排的唯一工具。工程按单一 Node.js 包管理，稳定 PackageId 与包名为 dsh-client-manual-continue，基础分支为 main，发布准备分支为 release。
+
+- 通过 smif commit 记录面向用户的产品变更，选择语义版本级别及已配置分类；纯 Agent 上下文变更不创建 changeset，不手工消费已记录的 changeset。
+- 使用 smif config sync --check 核对包发现与配置，smif status 审阅发布计划；执行变更前可使用 smif version --dry-run 预览。
+- 实际版本、变更日志及 changeset 消费只由经授权的 smif version 执行；不手动修改版本以绕过计划，也不把发布成功等同功能验收。
+- npm 注册表存在性检查和 npm 发布命令由 Semifold 的 Node.js resolver 配置。发布参数使用 provenance 与 public access；需要适用的发布环境及授权，不能据此认为本轮执行了发布。
+- 当前尚无产品实现，包以 private 标记阻止注册表发布，保留版本管理与计划能力。首次公开发布前须完成构建/验证入口、产物范围及许可核对、支持范围与真实组合验收，并经明确授权移除 private 标记。
+- 不生成自动推送、版本更新或发布的 CI 工作流。工具安装依据官方说明；当前配置验证所用版本和实际结果由 EVIDENCE-003 记录，不把工具实现细节加入项目上下文。
+
 ## 分发边界
 
-后续沿用 DSH 插件管理器及其 Host/Client、bundle patch 和元数据契约，不编辑 profile 或安装源码。支持范围由能力与实际行为验证决定，不用同名版本代替构建身份。版本编排在首次产品发布前确定；上下文初始化不引入发布工具、changeset、CI 或额外门禁。
+后续沿用 DSH 插件管理器及其 Host/Client、bundle patch 和元数据契约，不编辑 profile 或安装源码。支持范围由能力与实际行为验证决定，不用同名版本代替构建身份。配置版本与发布管理不构成安装、推送或公开发布授权。
