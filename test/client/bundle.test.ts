@@ -231,7 +231,7 @@ test('English and Chinese resources provide nonempty matching keys and localized
   assert.deepEqual([...en.keys()].sort(), [...zh.keys()].sort())
   assert.equal(en.get('meta.title'), 'Manual continuation')
   assert.equal(zh.get('meta.title'), '手动续跑')
-  for (const key of ['meta.description', 'continue', 'unknown', 'accepted']) {
+  for (const key of ['meta.description', 'continue', 'unknown']) {
     assert.ok(en.has(key) && zh.has(key))
     assert.notEqual(en.get(key), zh.get(key))
   }
@@ -242,6 +242,18 @@ test('English and Chinese resources provide nonempty matching keys and localized
       Array.from(value.matchAll(/\{([a-zA-Z][a-zA-Z0-9_.-]*)\}/g), (match) => match[1]).sort()
     assert.deepEqual(placeholders(text), placeholders(translated), `Placeholder mismatch: ${key}`)
   }
+})
+
+test('successful continuation adds no acceptance banner or acceptance copy', () => {
+  for (const locale of ['en', 'zh']) {
+    const resource = jsonResource(`locale/${locale}.json`)
+    assert.equal(Object.hasOwn(resource, 'accepted'), false)
+    assert.equal(Object.hasOwn(resource, 'acceptedUnconfirmed'), false)
+  }
+  assert.doesNotMatch(
+    source,
+    /续跑输入已接受|Continuation input accepted|持久化 checkpoint 尚未确认/,
+  )
 })
 
 test('original SVG resource is bounded and structurally self-contained, without a rendering claim', () => {

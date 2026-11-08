@@ -8,6 +8,7 @@ import { type ContinuationActionSnapshot, ManualContinuationController } from '.
 import type { ContinuationAuthority } from './authority.ts'
 import { createDomSeat, type DomSeat } from './dom-seat.ts'
 import { continuationFacts, decodeProjection } from './facts.ts'
+import { type ContinuationInspection, describeFacts } from './inspection.ts'
 import type { localeNamespace } from './locale.ts'
 
 export interface AnchorRuntime {
@@ -16,6 +17,7 @@ export interface AnchorRuntime {
   readonly connection: ConnectionHandle
   readonly locale: Context['locale']
   readonly authority: ContinuationAuthority
+  readonly inspection: ContinuationInspection
   readonly signal: AbortSignal
   readonly t: TranslateNS<typeof localeNamespace>
 }
@@ -39,7 +41,7 @@ function consumed(
 
 /** A stable module-level component. The Slot injects its run-owned environment, not a new component. */
 export function ContinuationAnchor(props: Props): React.ReactElement {
-  const { ctx, remote, connection, locale, authority, signal, t } = props.runtime
+  const { ctx, remote, connection, locale, authority, inspection, signal, t } = props.runtime
   // These public hooks subscribe this occurrence; activation reads their public sources again.
   const inputSnapshot = props.useInput((value) => value)
   props.useSession((value) => value)
@@ -71,13 +73,13 @@ export function ContinuationAnchor(props: Props): React.ReactElement {
   const anchor = React.useRef<HTMLSpanElement>(null)
   const seat = React.useRef<DomSeat | undefined>(undefined)
   const mounted = React.useRef(false)
-  const readFacts = React.useMemo(
+  const readSource = React.useMemo(
     () => () => {
       const connected = connection.state.getSnapshot() === 'connected'
       const generation = connected ? connection.generation.getSnapshot()?.id : undefined
       const proof = authority.getSnapshot()
       const exact = binding !== undefined && ctx.sessions.binding(props.sessionId) === binding
-      return continuationFacts({
+      return {
         sessionId: props.sessionId,
         session: exact ? binding.session.getSnapshot() : undefined,
         status: ctx.uiSession.sessionStatus.getSnapshot().get(props.sessionId),
@@ -90,9 +92,20 @@ export function ContinuationAnchor(props: Props): React.ReactElement {
         ownerVerified: proof.kind === 'available' && proof.generation === generation,
         access: currentAccess.current,
         blocked: blocks.getSnapshot() !== undefined,
-      })
+      }
     },
     [authority, binding, blocks, connection, ctx, input, props.sessionId, signal],
+  )
+  const readFacts = React.useMemo(() => () => continuationFacts(readSource()), [readSource])
+  React.useLayoutEffect(
+    () =>
+      inspection.register(() => ({
+        facts: describeFacts(readSource()),
+        authority: authority.getDiagnostics(),
+        proofMatchesGeneration: authority.getSnapshot().generation === readSource().generation,
+        dom: seat.current?.getDiagnostics() ?? { status: 'unmounted' },
+      })),
+    [inspection, readSource, authority],
   )
   const active = React.useRef<ManualContinuationController | undefined>(undefined)
   const [controller, setController] = React.useState<ManualContinuationController>()
@@ -105,12 +118,8 @@ export function ContinuationAnchor(props: Props): React.ReactElement {
     if (snapshot.kind === 'unknown') target.notify('error', t('unknown'))
     else if (snapshot.kind === 'settled') {
       const result = snapshot.result
-      if (result.kind === 'accepted' || result.kind === 'already-accepted') {
-        target.notify(
-          'info',
-          t(result.durability === 'confirmed' ? 'accepted' : 'acceptedUnconfirmed'),
-        )
-      } else if (result.kind === 'outcome-unknown') target.notify('error', t('unknown'))
+      if (result.kind === 'accepted' || result.kind === 'already-accepted') return
+      if (result.kind === 'outcome-unknown') target.notify('error', t('unknown'))
       else target.notify('info', t('denied', { reason: t(`reason.${result.kind}`) }))
     }
   }

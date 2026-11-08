@@ -20,6 +20,20 @@ export class ContinuationAuthority {
   })
   private pending: AbortController | undefined
   private disposed = false
+  private lastProbe:
+    | 'none'
+    | 'business-available'
+    | 'business-forbidden'
+    | 'business-unavailable'
+    | 'business-canceled'
+    | 'rpc-failure'
+    | 'exception' = 'none'
+  private errorCode: string | null = null
+  readonly getDiagnostics = () => ({
+    kind: this.snapshot.kind,
+    lastProbe: this.lastProbe,
+    errorCode: this.errorCode,
+  })
 
   constructor(
     connection: ConnectionFacts,
@@ -79,17 +93,27 @@ export class ContinuationAuthority {
     }
     try {
       this.probe(pending.signal).then(
-        (result) =>
+        (result) => {
+          if (this.pending !== pending || pending.signal.aborted || this.disposed) return
+          this.lastProbe = result.ok ? `business-${result.value.kind}` : 'rpc-failure'
+          this.errorCode =
+            !result.ok && /^[A-Z0-9_.:-]{1,64}$/i.test(result.error.code) ? result.error.code : null
           finish(
             result.ok && result.value.kind === 'available'
               ? 'available'
               : result.ok && result.value.kind === 'forbidden'
                 ? 'forbidden'
                 : 'unavailable',
-          ),
-        () => finish('unavailable'),
+          )
+        },
+        () => {
+          if (this.pending !== pending || pending.signal.aborted || this.disposed) return
+          this.lastProbe = 'exception'
+          finish('unavailable')
+        },
       )
     } catch {
+      this.lastProbe = 'exception'
       finish('unavailable')
     }
   }

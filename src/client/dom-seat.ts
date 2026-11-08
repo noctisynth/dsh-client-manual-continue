@@ -9,6 +9,15 @@ export interface DomSeat {
   /** Re-evaluate; only true acknowledges a newly published InputState snapshot. */
   refresh(inputPublished?: boolean): void
   getStatus(): 'native' | 'attached' | 'disposed'
+  getDiagnostics(): {
+    status: 'native' | 'attached' | 'disposed'
+    frameMatched: boolean
+    mainMatched: boolean
+    changedRoot: boolean
+    inputDirty: boolean
+    composing: boolean
+    tokenPresent: boolean
+  }
   dispose(): void
 }
 
@@ -476,6 +485,18 @@ export function createDomSeat(
     },
     getStatus() {
       return disposed ? 'disposed' : attachment === undefined ? 'native' : 'attached'
+    },
+    getDiagnostics() {
+      const current = findFrame()
+      return {
+        status: disposed ? 'disposed' : attachment === undefined ? 'native' : 'attached',
+        frameMatched: current !== undefined,
+        mainMatched: current !== undefined && nativeButton(current) !== undefined,
+        changedRoot,
+        inputDirty,
+        composing,
+        tokenPresent: token !== undefined,
+      }
     },
     dispose() {
       if (disposed) return
