@@ -176,6 +176,12 @@ test('materialization shares real React, imports no Host/Node runtime, and does 
   )
 })
 
+test('production adapter contains semantic tokens but no build-specific CSS hashes', () => {
+  assert.doesNotMatch(source, /GRgSLq_|JZLxKW_|uV2eYG_/)
+  assert.match(source, /standardControls/)
+  assert.match(source, /cssPrefix/)
+})
+
 test('package metadata exports and includes the native Client and required display resources', () => {
   const manifest = jsonResource('package.json')
   assert.equal(manifest.name, packageId)

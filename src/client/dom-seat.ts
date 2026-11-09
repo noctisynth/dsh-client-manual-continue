@@ -33,6 +33,20 @@ interface Frame {
   readonly trailing: HTMLElement
   readonly row: HTMLElement
   readonly editor: HTMLElement
+  readonly cssPrefix: string
+}
+
+/** Read whole CSS-module tokens, never interpolate untrusted classes into a selector. */
+function modulePrefix(
+  element: Element,
+  part: 'standardControls' | 'trailing' | 'row' | 'primary',
+): string | undefined {
+  const suffix = `_${part}`
+  const tokens = [...element.classList].filter((token) => token.endsWith(suffix))
+  const token = tokens[0]
+  if (tokens.length !== 1 || token === undefined) return undefined
+  const prefix = token.slice(0, -suffix.length)
+  return /^[A-Za-z0-9_-]+$/.test(prefix) ? prefix : undefined
 }
 
 interface Attachment {
@@ -41,7 +55,7 @@ interface Attachment {
   readonly button: HTMLButtonElement
 }
 
-/** A build-specific compatibility adapter, not a public DSH extension point or RPC caller. */
+/** A structure-limited compatibility adapter, not a public DSH extension point or RPC caller. */
 export function createDomSeat(
   anchor: HTMLElement,
   sessionId: string,
@@ -103,11 +117,27 @@ export function createDomSeat(
   function findFrame(): Frame | undefined {
     if (view === null || !anchor.isConnected || anchor.getRootNode() !== doc) return undefined
     const card = anchor.closest('[data-composer-card]')
-    const seat = card?.closest('[data-composer-seat][data-conversation-region="composer"]') ?? null
+    if (!element(card)) return undefined
+    const seat = card.closest('[data-composer-seat][data-conversation-region="composer"]')
     const occurrence =
       seat?.closest('[data-conversation-content][data-conversation-session]') ?? null
-    const controls = anchor.closest('.GRgSLq_standardControls')
-    const trailing = controls?.parentElement ?? null
+    const controlCandidates: Array<{ node: HTMLElement; prefix: string }> = []
+    for (
+      let ancestor = anchor.parentElement;
+      ancestor !== null && ancestor !== card;
+      ancestor = ancestor.parentElement
+    ) {
+      if (![...ancestor.classList].some((token) => token.endsWith('_standardControls'))) continue
+      const prefix = modulePrefix(ancestor, 'standardControls')
+      if (prefix === undefined) return undefined
+      controlCandidates.push({ node: ancestor, prefix })
+    }
+    if (controlCandidates.length !== 1) return undefined
+    const control = controlCandidates[0]
+    if (control === undefined) return undefined
+    const controls = control.node
+    const cssPrefix = control.prefix
+    const trailing = controls.parentElement
     const row = trailing?.parentElement ?? null
     if (
       !element(card) ||
@@ -117,8 +147,8 @@ export function createDomSeat(
       !element(trailing) ||
       !element(row) ||
       occurrence.dataset.conversationSession !== sessionId ||
-      !trailing.classList.contains('GRgSLq_trailing') ||
-      !row.classList.contains('GRgSLq_row') ||
+      modulePrefix(trailing, 'trailing') !== cssPrefix ||
+      modulePrefix(row, 'row') !== cssPrefix ||
       controls.closest('[data-composer-card]') !== card ||
       !card.contains(row) ||
       !seat.contains(card) ||
@@ -130,7 +160,7 @@ export function createDomSeat(
     )
     const editor = editors[0] ?? null
     if (editors.length !== 1 || !element(editor)) return undefined
-    return { card, seat, occurrence, controls, trailing, row, editor }
+    return { card, seat, occurrence, controls, trailing, row, editor, cssPrefix }
   }
 
   function sameFrame(left: Frame, right: Frame): boolean {
@@ -141,7 +171,8 @@ export function createDomSeat(
       left.controls === right.controls &&
       left.trailing === right.trailing &&
       left.row === right.row &&
-      left.editor === right.editor
+      left.editor === right.editor &&
+      left.cssPrefix === right.cssPrefix
     )
   }
 
@@ -289,16 +320,21 @@ export function createDomSeat(
       inputDirty
     )
       return undefined
+    // Model-selection controls also publish aria-busy, but belong to the auxiliary subtree.
+    // Keep unknown wrappers outside it in the count: only a unique direct primary may be owned.
     const candidates = [
-      ...current.trailing.querySelectorAll('button[type="button"].GRgSLq_primary[aria-busy]'),
+      ...current.trailing.querySelectorAll('button[type="button"][aria-busy]'),
     ].filter(
       (candidate) =>
-        !owned(candidate) && candidate.closest('[data-composer-card]') === current.card,
+        !owned(candidate) &&
+        !current.controls.contains(candidate) &&
+        candidate.closest('[data-composer-card]') === current.card,
     )
     const candidate = candidates[0]
     if (
       candidates.length !== 1 ||
       !(candidate instanceof view.HTMLButtonElement) ||
+      modulePrefix(candidate, 'primary') !== current.cssPrefix ||
       candidate.parentElement !== current.trailing ||
       candidate.getAttribute('aria-busy') !== 'false' ||
       candidate.hasAttribute('data-sending') ||

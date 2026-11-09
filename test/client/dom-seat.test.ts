@@ -22,7 +22,7 @@ function fixture(t: TestContext) {
   const selectedRoot = doc.querySelector('main')
   assert.ok(selectedRoot)
   const root = selectedRoot
-  function occurrence(id = 'offline-session') {
+  function occurrence(id = 'offline-session', cssPrefix = 'JZLxKW') {
     const section = doc.createElement('section')
     section.setAttribute('data-conversation-content', '')
     section.dataset.conversationSession = id
@@ -41,20 +41,27 @@ function fixture(t: TestContext) {
     editor.tabIndex = 0
     editor.innerHTML = '<p><br></p>'
     const row = doc.createElement('div')
-    row.className = 'GRgSLq_row'
+    row.className = `${cssPrefix}_row`
     const tools = doc.createElement('div')
-    tools.className = 'GRgSLq_tools'
+    tools.className = `${cssPrefix}_tools`
     const trailing = doc.createElement('div')
-    trailing.className = 'GRgSLq_trailing'
+    trailing.className = `${cssPrefix}_trailing`
     const standard = doc.createElement('div')
-    standard.className = 'GRgSLq_standardControls'
+    standard.className = `${cssPrefix}_standardControls`
     const anchor = doc.createElement('span')
     anchor.hidden = true
     anchor.setAttribute('aria-hidden', 'true')
-    standard.append(anchor)
+    const modelRoot = doc.createElement('div')
+    const model = doc.createElement('button')
+    model.type = 'button'
+    model.className = 'Model_trigger'
+    model.setAttribute('aria-busy', 'false')
+    model.setAttribute('aria-haspopup', 'menu')
+    modelRoot.append(model)
+    standard.append(anchor, modelRoot)
     const native = doc.createElement('button')
     native.type = 'button'
-    native.className = 'GRgSLq_primary'
+    native.className = `${cssPrefix}_primary`
     native.setAttribute('aria-busy', 'false')
     native.setAttribute('aria-label', '原按钮 / native')
     native.disabled = true
@@ -65,7 +72,7 @@ function fixture(t: TestContext) {
     seat.append(card)
     section.append(seat)
     root.append(section)
-    return { section, seat, card, editor, row, trailing, standard, anchor, native }
+    return { section, seat, card, editor, row, trailing, standard, anchor, model, native }
   }
   function connect(anchor: HTMLElement, state: DomSeatPresentation, id = 'offline-session') {
     const control = createDomSeat(anchor, id, () => state)
@@ -122,6 +129,238 @@ test('inserts one owned button in the original parent/child seat and hides only 
   assert.equal(a.native.onclick, callback)
 })
 
+test('the nested aria-busy model trigger is not a competing primary action', (t) => {
+  const f = fixture(t)
+  const a = f.occurrence()
+  assert.equal(a.card.querySelectorAll('button[type="button"][aria-busy]').length, 2)
+  assert.equal(a.model.disabled, false)
+  const control = f.connect(a.anchor, f.state)
+  assert.equal(control.getStatus(), 'attached')
+  assert.equal(control.getDiagnostics().mainMatched, true)
+  assert.equal(a.model.hasAttribute(suppressed), false)
+  assert.equal(a.native.hasAttribute(suppressed), true)
+  control.dispose()
+  assert.equal(a.model.hasAttribute(suppressed), false)
+  assert.equal(a.native.hasAttribute(suppressed), false)
+})
+
+test('discovers build prefixes without a platform branch or hash allowlist', async (t) => {
+  const f = fixture(t)
+  const generated = `build_${f.dom.window.crypto.randomUUID().replaceAll('-', '_')}`
+  for (const prefix of ['GRgSLq', 'JZLxKW', 'uV2eYG', '9_build-hash', generated]) {
+    await t.test(prefix, (t) => {
+      const f = fixture(t)
+      const a = f.occurrence('offline-session', prefix)
+      a.row.classList.add('layout-row')
+      a.trailing.classList.add(`${prefix}_trailingActive`)
+      a.standard.classList.add('extra-controls')
+      a.native.classList.add('theme-button')
+      const control = f.connect(a.anchor, f.state)
+      assert.equal(control.getStatus(), 'attached')
+      assert.equal(control.getDiagnostics().frameMatched, true)
+      assert.equal(f.button(a.card).className, a.native.className)
+      control.dispose()
+      assert.equal(a.native.hasAttribute(suppressed), false)
+      assert.equal(a.card.querySelector(ownedSelector), null)
+    })
+  }
+})
+
+test('discovers separate prefixes in same-Session occurrences independently', (t) => {
+  const f = fixture(t)
+  const left = f.occurrence('offline-session', 'GRgSLq')
+  const right = f.occurrence('offline-session', 'JZLxKW')
+  const rightControl = f.connect(right.anchor, f.state)
+  const leftControl = f.connect(left.anchor, f.state)
+  assert.equal(rightControl.getStatus(), 'attached')
+  assert.equal(leftControl.getStatus(), 'attached')
+  assert.equal(f.button(left.card).className, 'GRgSLq_primary')
+  assert.equal(f.button(right.card).className, 'JZLxKW_primary')
+  rightControl.dispose()
+  assert.equal(right.native.hasAttribute(suppressed), false)
+  assert.equal(left.native.hasAttribute(suppressed), true)
+})
+
+test('mixed, ambiguous or missing module tokens never become a dynamic match', async (t) => {
+  for (const variant of [
+    'mixed-trailing',
+    'mixed-row',
+    'mixed-primary',
+    'ambiguous-controls',
+    'ambiguous-trailing',
+    'ambiguous-row',
+    'ambiguous-primary',
+    'nested-controls',
+    'missing-controls',
+    'missing-primary',
+    'empty-prefix',
+    'unsafe-prefix',
+    'substring-only',
+    'foreign-button',
+    'classless-button',
+  ] as const) {
+    await t.test(variant, (t) => {
+      const f = fixture(t)
+      const a = f.occurrence()
+      if (variant === 'mixed-trailing') a.trailing.className = 'Other_trailing'
+      if (variant === 'mixed-row') a.row.className = 'Other_row'
+      if (variant === 'mixed-primary') a.native.className = 'Other_primary'
+      if (variant === 'ambiguous-controls') a.standard.classList.add('Other_standardControls')
+      if (variant === 'ambiguous-trailing') a.trailing.classList.add('Other_trailing')
+      if (variant === 'ambiguous-row') a.row.classList.add('Other_row')
+      if (variant === 'ambiguous-primary') a.native.classList.add('Other_primary')
+      if (variant === 'nested-controls') {
+        const wrapper = f.doc.createElement('div')
+        wrapper.className = 'Other_standardControls'
+        a.anchor.before(wrapper)
+        wrapper.append(a.anchor)
+      }
+      if (variant === 'missing-controls') a.standard.className = ''
+      if (variant === 'missing-primary') a.native.className = ''
+      if (variant === 'empty-prefix') a.standard.className = '_standardControls'
+      if (variant === 'unsafe-prefix') a.standard.className = 'bad:hash_standardControls'
+      if (variant === 'substring-only') a.standard.className = 'JZLxKW_standardControlsExtra'
+      if (variant === 'foreign-button' || variant === 'classless-button') {
+        const extra = a.native.cloneNode(true)
+        assert.ok(extra instanceof f.dom.window.HTMLButtonElement)
+        extra.className = variant === 'foreign-button' ? 'Other_primary' : ''
+        a.trailing.append(extra)
+      }
+      const control = f.connect(a.anchor, f.state)
+      assert.equal(control.getStatus(), 'native')
+      assert.equal(a.native.hasAttribute(suppressed), false)
+      assert.equal(a.card.querySelector(ownedSelector), null)
+      assert.equal(f.state.calls, 0)
+    })
+  }
+})
+
+test('consistent but malformed prefixes are not accepted as module signatures', async (t) => {
+  for (const prefix of ['', 'bad:hash', 'bad.hash', 'bad[hash]', '模块']) {
+    await t.test(prefix || 'empty', (t) => {
+      const f = fixture(t)
+      const a = f.occurrence('offline-session', prefix)
+      const control = f.connect(a.anchor, f.state)
+      assert.equal(control.getDiagnostics().frameMatched, false)
+      assert.equal(control.getStatus(), 'native')
+      assert.equal(a.native.hasAttribute(suppressed), false)
+      assert.equal(f.state.calls, 0)
+    })
+  }
+})
+
+test('a live module-prefix change invalidates the old seat until it is recreated', async (t) => {
+  const f = fixture(t)
+  const a = f.occurrence('offline-session', 'GRgSLq')
+  const control = f.connect(a.anchor, f.state)
+  const oldButton = f.button(a.card)
+  a.row.className = 'JZLxKW_row'
+  a.trailing.className = 'JZLxKW_trailing'
+  a.standard.className = 'JZLxKW_standardControls'
+  a.native.className = 'JZLxKW_primary'
+  await f.settle()
+  assert.equal(control.getStatus(), 'native')
+  assert.equal(control.getDiagnostics().changedRoot, true)
+  assert.equal(a.native.hasAttribute(suppressed), false)
+  oldButton.click()
+  assert.equal(f.state.calls, 0)
+  control.refresh(true)
+  assert.equal(control.getStatus(), 'native')
+  control.dispose()
+  const next = f.connect(a.anchor, f.state)
+  assert.equal(next.getStatus(), 'attached')
+  assert.equal(f.button(a.card).className, 'JZLxKW_primary')
+})
+
+test('an ambiguous live primary class restores native without executing a stale action', async (t) => {
+  const f = fixture(t)
+  const a = f.occurrence()
+  const control = f.connect(a.anchor, f.state)
+  const oldButton = f.button(a.card)
+  a.native.classList.add('Other_primary')
+  await f.settle()
+  assert.equal(control.getStatus(), 'native')
+  assert.equal(a.native.hasAttribute(suppressed), false)
+  oldButton.click()
+  assert.equal(f.state.calls, 0)
+})
+
+test('only the anchor ancestor chain and current card contribute dynamic candidates', (t) => {
+  const f = fixture(t)
+  const a = f.occurrence()
+  const sibling = f.doc.createElement('div')
+  sibling.className = 'Other_standardControls'
+  a.card.append(sibling)
+  const foreign = f.occurrence('foreign-session', 'Other')
+  a.trailing.append(foreign.section)
+  const control = f.connect(a.anchor, f.state)
+  assert.equal(control.getStatus(), 'attached')
+  assert.equal(foreign.native.hasAttribute(suppressed), false)
+  assert.equal(foreign.card.querySelector(ownedSelector), null)
+})
+
+test('unrelated live classes preserve the exact current frame', async (t) => {
+  const f = fixture(t)
+  const a = f.occurrence()
+  const control = f.connect(a.anchor, f.state)
+  const owned = f.button(a.card)
+  a.standard.classList.add('utility-controls')
+  a.trailing.classList.add('JZLxKW_trailingActive')
+  a.row.classList.add('utility-layout')
+  await f.settle()
+  assert.equal(control.getStatus(), 'attached')
+  assert.equal(control.getDiagnostics().changedRoot, false)
+  assert.equal(f.button(a.card), owned)
+})
+
+test('live competing buttons restore native even when foreign, hidden or busy', async (t) => {
+  for (const variant of ['foreign', 'classless', 'hidden', 'busy'] as const) {
+    await t.test(variant, async (t) => {
+      const f = fixture(t)
+      const a = f.occurrence()
+      const control = f.connect(a.anchor, f.state)
+      const extra = a.native.cloneNode(true)
+      assert.ok(extra instanceof f.dom.window.HTMLButtonElement)
+      extra.removeAttribute(suppressed)
+      if (variant === 'foreign') extra.className = 'Other_primary'
+      if (variant === 'classless') extra.className = ''
+      if (variant === 'hidden') extra.hidden = true
+      if (variant === 'busy') extra.setAttribute('aria-busy', 'true')
+      a.trailing.append(extra)
+      await f.settle()
+      assert.equal(control.getStatus(), 'native')
+      assert.equal(a.native.hasAttribute(suppressed), false)
+      assert.equal(extra.hasAttribute(suppressed), false)
+      assert.equal(a.card.querySelector(ownedSelector), null)
+      assert.equal(f.state.calls, 0)
+      extra.remove()
+      await f.settle()
+      assert.equal(control.getStatus(), 'attached')
+    })
+  }
+})
+
+test('a stale mousedown rechecks a changed prefix before the observer runs', (t) => {
+  const f = fixture(t)
+  const a = f.occurrence()
+  const control = f.connect(a.anchor, f.state)
+  const owned = f.button(a.card)
+  a.row.className = 'Next_row'
+  a.trailing.className = 'Next_trailing'
+  a.standard.className = 'Next_standardControls'
+  a.native.className = 'Next_primary'
+  const event = new f.dom.window.MouseEvent('mousedown', {
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+  })
+  owned.dispatchEvent(event)
+  assert.equal(event.defaultPrevented, false)
+  assert.equal(control.getStatus(), 'native')
+  assert.equal(a.native.hasAttribute(suppressed), false)
+  assert.equal(f.state.calls, 0)
+})
+
 test('zero, duplicate, unknown wrapper and wrong Session candidates preserve native', async (t) => {
   for (const variant of ['zero', 'duplicate', 'wrapper', 'session'] as const) {
     await t.test(variant, (t) => {
@@ -165,7 +404,7 @@ test('the independent Stop is not selected or hidden', (t) => {
   const a = f.occurrence()
   const stop = f.doc.createElement('button')
   stop.type = 'button'
-  stop.className = 'GRgSLq_primary'
+  stop.className = a.native.className
   stop.textContent = 'Stop / 停止'
   a.native.before(stop)
   const control = f.connect(a.anchor, f.state)
