@@ -1,6 +1,6 @@
 # 纯 TypeScript 插件技术方案
 
-编号：SPEC-001。更新：2026-11-09。依据：RFC-001、FACT-001。状态：工程方案，非已实现能力。
+编号：SPEC-001。更新：2026-11-11。依据：RFC-001、FACT-001。状态：工程方案，具体执行结果见对应证据。
 
 ## 架构决策：TypeScript 适配与宿主能力复用
 
@@ -79,9 +79,15 @@ Semifold 是版本意图、版本更新、变更日志及发布编排的唯一�
 - 通过 smif commit 记录面向用户的产品变更，选择语义版本级别及已配置分类；纯 Agent 上下文变更不创建 changeset，不手工消费已记录的 changeset。
 - 使用 smif config sync --check 核对包发现与配置，smif status 审阅发布计划；执行变更前可使用 smif version --dry-run 预览。
 - 实际版本、变更日志及 changeset 消费只由经授权的 smif version 执行；不手动修改版本以绕过计划，也不把发布成功等同功能验收。
-- npm 注册表存在性检查和 npm 发布命令由 Semifold 的 Node.js resolver 配置。发布参数使用 provenance 与 public access；需要适用的发布环境及授权，不能据此认为本轮执行了发布。
-- Host 与 Client 源码和本地分发构建仍不能代替实际运行验收；包保留 private，保留版本管理与计划能力。首次公开发布前须完成构建/验证入口、产物范围及许可核对、支持范围与真实组合验收，并经明确授权移除 private 标记。
-- 不生成自动推送、版本更新或发布的 CI 工作流。工具安装依据官方说明；当前配置验证所用版本和实际结果由 EVIDENCE-003 记录，不把工具实现细节加入项目上下文。
+- npm 注册表存在性检查与 public 发布由 Semifold 的 Node.js resolver 统一执行，明确使用 --provenance。用户已授权将源码仓库改为 public；包 repository 必须与 GitHub 来源匹配，使用 GitHub 托管 runner，并仅给发布作业 id-token 写权限。npm 发布仍使用 NPM_TOKEN；用于 provenance 的 OIDC 身份不等于已经配置 npm trusted publishing。
+- 用户已确认产品验收并明确采用 MIT 公开 npm 分发；移除包 private 标记，保留第三方许可。验收结论来自用户，不替代本轮工程检查或真实 CI 执行证据，也不扩大支持范围。
+- 本地版本保持 0.0.0，现有 minor changeset 将下一版本规划为 0.1.0；不创建 major 版本意图，不手工更新或消费历史 changeset。未来版本按新增 changeset 正常演进，不把首次目标硬编码为永久发布限制。
+- GitHub Actions 在面向 main 的 PR、main 推送及手动触发时运行质量检查。固定 Node、pnpm、Semifold 与 Action 提交；执行冻结依赖安装、完整工程检查、实际打包清单验证、配置同步与版本模拟。质量作业只读，不读取发布 secret。
+- 仅 main 推送或 main 手动触发且质量作业成功后运行发布作业，重建同一提交的分发物。发布作业串行且不取消在途发布；陈旧主分支提交跳过，不从 PR、fork 或其它分支发布。
+- 发布作业只调用 smif ci：存在 changeset 时维护 release 分支及发布 PR，无 changeset 时发布已准备版本并创建 GitHub Release。不得串联本地 smif version/publish 消费同一批变更。仅发布步骤读取 npm secret，缺失凭据不影响创建版本 PR，但实际发布必须明确失败。
+- 使用 GITHUB_TOKEN 管理发布分支、PR 与 Release；机器人创建的发布 PR 可能需要维护者批准质量工作流后才能合并。发布后再有新 changeset 则重复同一流程；失败按 Semifold 预检查结果重跑，不重发已存在的 npm 版本。
+- 质量门禁检查包元数据、实际打包文件、全部导出目标、源码类型声明、语言/图标/许可与必要构建产物，拒绝依赖、测试、工程上下文或私密文件进入包。此检查不加载插件、不操作 GUI 或模型。
+- 配置阶段不安装依赖、不推送、不触发远程工作流、不创建凭据，也不执行真实发布；后续提交与推送按 RFC-001 新增的明确授权执行。远端启用条件、运行方式及配置阶段验证限制由 EVIDENCE-011 与发布操作说明维护。
 
 ## 分发边界
 

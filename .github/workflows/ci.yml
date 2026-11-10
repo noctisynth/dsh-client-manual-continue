@@ -1,0 +1,89 @@
+name: Quality and Release
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: quality-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Setup tools
+        uses: ./.github/actions/setup
+      - name: Check Semifold configuration
+        run: pnpm run release:check
+      - name: Build, typecheck, lint, and test
+        run: pnpm run check
+      - name: Check distribution package
+        run: pnpm run check:package
+      - name: Preview versions without consuming changesets
+        run: pnpm run release:version --dry-run
+
+  release:
+    name: Semifold Version or Publish
+    needs: quality
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    concurrency:
+      group: semifold-release-main
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+    outputs:
+      version: ${{ steps.semifold.outputs['semifold-version'] }}
+      publish: ${{ steps.semifold.outputs['semifold-publish'] }}
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Skip superseded main commits
+        id: current
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')
+          if [[ "$latest" == "$GITHUB_SHA" ]]; then
+            echo 'release=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'release=false' >> "$GITHUB_OUTPUT"
+            echo 'Skipping a superseded main commit.'
+          fi
+      - name: Setup tools
+        if: steps.current.outputs.release == 'true'
+        uses: ./.github/actions/setup
+      - name: Build fresh distribution files
+        if: steps.current.outputs.release == 'true'
+        run: pnpm run build
+      - name: Check fresh package
+        if: steps.current.outputs.release == 'true'
+        run: pnpm run check:package
+      - name: Version PR or publish prepared versions
+        if: steps.current.outputs.release == 'true'
+        id: semifold
+        run: pnpm run release:ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

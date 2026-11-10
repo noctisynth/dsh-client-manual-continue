@@ -1,0 +1,23 @@
+name: Setup quality and release tools
+description: Install the pinned Node.js, pnpm, and Semifold toolchain.
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      with:
+        node-version: '24.21.0'
+        registry-url: https://registry.npmjs.org
+        package-manager-cache: false
+    - name: Setup pnpm
+      uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+      with:
+        run_install: false
+    - name: Setup Semifold
+      uses: noctisynth/setup-semifold@9dc3b2e2f25d5db332322b29c3d3436c857ca1d9
+      with:
+        version: '0.3.5'
+    - name: Install locked dependencies
+      shell: bash
+      run: pnpm install --frozen-lockfile

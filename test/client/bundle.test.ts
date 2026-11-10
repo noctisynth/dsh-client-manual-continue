@@ -185,7 +185,8 @@ test('production adapter contains semantic tokens but no build-specific CSS hash
 test('package metadata exports and includes the native Client and required display resources', () => {
   const manifest = jsonResource('package.json')
   assert.equal(manifest.name, packageId)
-  assert.equal(manifest.private, true)
+  assert.notEqual(manifest.private, true)
+  assert.equal(manifest.license, 'MIT')
   assert.ok(isRecord(manifest.exports))
   const client = manifest.exports['./client']
   assert.ok(isRecord(client))
@@ -208,6 +209,7 @@ test('package metadata exports and includes the native Client and required displ
     'cordis.patch.yml',
     'locale/*.json',
     'icon.svg',
+    'LICENSE',
     'THIRD_PARTY_NOTICES',
   ]) {
     assert.ok(files.has(file), `Publication metadata must include ${file}`)
