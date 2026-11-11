@@ -1,6 +1,6 @@
 {
   "name": "dsh-client-manual-continue",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Manual continuation plugin for DSH",
   "license": "MIT",
   "repository": {
