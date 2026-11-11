@@ -58,4 +58,5 @@
 - [x] 补齐 MIT、公开包元数据与发布操作说明，记录本轮 Semifold 版本意图。
 - [x] 核对配置语法、包元数据、版本模拟及 diff；确认下一版本 0.1.0，不消费 changeset。本轮实际执行范围与未运行检查见 EVIDENCE-011。
 - [x] 修复首次 CI 的 smif 命令缺失：统一 semifold 入口、安装后验证，补两项回归并完成本地适用检查；按明确授权提交推送，不把本地检查等同于后续完整 CI 通过。
-- [ ] 准备 npm secret，取得完整质量 CI 成功结果，审阅合并发布 PR，再验证 npm 和 GitHub Release；本地配置已合入 main，首次 CI 的直接失败原因与后续处理见 EVIDENCE-011。
+- [x] 真实主分支 CI 完整通过，Semifold 自动创建发布 PR #1，确认 release 分支目标 0.1.0；直接证据见 EVIDENCE-011，不等同于发布 PR 的检查已通过或 npm 已发布。
+- [ ] 准备 npm secret，确认发布 PR 的质量检查并审阅合并，再验证 npm 和 GitHub Release；未经另行明确授权不自动合并或发布。

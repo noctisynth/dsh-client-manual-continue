@@ -56,3 +56,5 @@
 入口修复以 5cebafa 推送后，新一轮 CI 的 Setup tools 和 Check Semifold configuration 均通过，原入口错误已由真实 CI 复核消除；完整工程步骤随后在新增打包测试的严格类型检查上失败。GitHub 检查注释明确指出目录读取结果为 string | NonSharedBuffer，不能直接调用 endsWith 与 replaceAll。最小后续修正是在测试目录读取时显式指定 UTF-8 编码，选择字符串返回值的正式重载，不使用断言或放宽类型检查，不改变插件行为。运行记录：https://github.com/noctisynth/dsh-client-manual-continue/actions/runs/42977634300 。
 
 类型修正以 0af7aad 推送后，下一轮实际日志确认 Host/Client 构建、正式 Remote 生成和三个严格类型程序全部通过，随后 Biome 在三个新增工程文件中报告四处格式或导入排序错误。按日志给出的准确格式仅调整参数换行、JSON 读取换行及导入顺序，不禁用规则；此时测试与发布步骤仍未执行。运行记录：https://github.com/noctisynth/dsh-client-manual-continue/actions/runs/42978411607 。
+
+格式修正 a28af44 的真实 CI 全部成功：Quality 的配置同步、构建、三个严格类型程序、Biome、全部离线测试、真实打包清单检查及版本预览通过；Semifold Version or Publish 的重新构建、包核对和 semifold ci 也通过。Semifold 自动创建 release → main 的发布 PR #1；直接读取 release 分支包元数据确认目标为 0.1.0，main 与本地仍保持 0.0.0。没有合并 PR、消费本地 changeset 或执行 npm 发布；PR 检查尚无记录，不能把主分支 CI 成功等同为发布 PR 已完成检查。运行记录：https://github.com/noctisynth/dsh-client-manual-continue/actions/runs/42979338424 。发布 PR：https://github.com/noctisynth/dsh-client-manual-continue/pull/1 。
