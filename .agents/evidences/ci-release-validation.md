@@ -54,3 +54,5 @@
 本地直接验证：目标 Node.js 24.21.0 的新增两项与既有打包校验六项合计八项通过；composite YAML 解析及安装顺序断言、配置同步、差异空白检查通过。semifold commit 创建 patch:fix 版本意图后，现有九个 changeset 仍规划 0.0.0 → 0.1.0，版本 dry-run 通过且没有消费 changeset。本机 CLI 仍为 0.3.4；未安装本地依赖，未据此声称完整工程检查或修复后的远程 CI 已通过。
 
 入口修复以 5cebafa 推送后，新一轮 CI 的 Setup tools 和 Check Semifold configuration 均通过，原入口错误已由真实 CI 复核消除；完整工程步骤随后在新增打包测试的严格类型检查上失败。GitHub 检查注释明确指出目录读取结果为 string | NonSharedBuffer，不能直接调用 endsWith 与 replaceAll。最小后续修正是在测试目录读取时显式指定 UTF-8 编码，选择字符串返回值的正式重载，不使用断言或放宽类型检查，不改变插件行为。运行记录：https://github.com/noctisynth/dsh-client-manual-continue/actions/runs/42977634300 。
+
+类型修正以 0af7aad 推送后，下一轮实际日志确认 Host/Client 构建、正式 Remote 生成和三个严格类型程序全部通过，随后 Biome 在三个新增工程文件中报告四处格式或导入排序错误。按日志给出的准确格式仅调整参数换行、JSON 读取换行及导入顺序，不禁用规则；此时测试与发布步骤仍未执行。运行记录：https://github.com/noctisynth/dsh-client-manual-continue/actions/runs/42978411607 。

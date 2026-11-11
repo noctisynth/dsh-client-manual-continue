@@ -78,7 +78,14 @@ if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(
   const packed: unknown = JSON.parse(
     execFileSync(
       'npm',
-      ['pack', '--dry-run', '--ignore-scripts', '--json', '--cache', join(root, '.inspection/npm-cache')],
+      [
+        'pack',
+        '--dry-run',
+        '--ignore-scripts',
+        '--json',
+        '--cache',
+        join(root, '.inspection/npm-cache'),
+      ],
       { cwd: root, encoding: 'utf8' },
     ),
   )

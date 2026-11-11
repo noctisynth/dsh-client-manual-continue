@@ -24,7 +24,10 @@ test('release scripts use the executable provided by the official binary install
 })
 
 test('CI verifies the installed Semifold executable before installing project dependencies', () => {
-  const setup = readFileSync(new URL('../.github/actions/setup/action.yml', import.meta.url), 'utf8')
+  const setup = readFileSync(
+    new URL('../.github/actions/setup/action.yml', import.meta.url),
+    'utf8',
+  )
   const verify = setup.indexOf('run: semifold --version')
   const install = setup.indexOf('run: pnpm install --frozen-lockfile')
   assert.ok(verify >= 0, 'CI must check the executable actually invoked by release scripts')
