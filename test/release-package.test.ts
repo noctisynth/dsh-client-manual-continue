@@ -21,7 +21,7 @@ const paths = [
   'lib/typert.remote-client.d.ts',
   'lib/typert.remote-client.d.ts.map',
   'lib/client/index.js',
-  ...readdirSync(new URL('../src', import.meta.url), { recursive: true })
+  ...readdirSync(new URL('../src', import.meta.url), { recursive: true, encoding: 'utf8' })
     .filter((path) => path.endsWith('.ts'))
     .map((path) => `src/${path.replaceAll('\\', '/')}`),
 ]
