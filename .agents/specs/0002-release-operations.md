@@ -12,7 +12,7 @@ Semifold 是唯一版本和发布编排入口。代码变更连同 smif commit �
 
 1. 将已审阅配置正常提交并合入 main；提交与推送须有明确授权。本次后续推送已由用户单独授权，main 推送按工作流触发质量检查与发布 PR 流程，不自动合并发布 PR。
 2. 在 GitHub 仓库 Settings → Actions → General 确保允许所使用的 Actions，启用 Allow GitHub Actions to create and approve pull requests。发布作业声明 contents 与 pull-requests 写权限；组织策略也须允许。当前只读核对显示该仓库允许工作流写入与创建 PR，不代表策略永不变化。
-3. 在 Settings → Secrets and variables → Actions 配置名为 NPM_TOKEN 的 secret。使用有权首次创建并发布 dsh-client-manual-continue 的 npm 凭据，并按 npm 当前规则允许非交互发布；不能将令牌写入源码、日志或上下文。
+3. 在 Settings → Secrets and variables → Actions 配置名为 NPM_TOKEN 的 repository secret。当前工作流使用 npm granular access token，Packages and scopes 权限选择 Read and write (publish and stage)，创建时启用 Bypass two-factor authentication，并确认令牌及所属账号有权创建和发布目标包。设置合适的过期时间，不将令牌写入源码、日志或上下文。GITHUB_TOKEN 由 GitHub Actions 自动提供，不另建 PAT。provenance 使用工作流已配置的 id-token 权限，不需要手工签名密钥。
 4. npm 账号须有目标包名的发布权限。若名称已被其它主体占用，应先解决命名或授权，不能靠重跑绕过。
 5. 将 Quality 设为 main 的必需检查，并要求审阅发布 PR。本轮未修改保护规则，不能声称已经强制禁止未检查的合并。
 
@@ -26,9 +26,12 @@ Semifold 是唯一版本和发布编排入口。代码变更连同 smif commit �
 - 质量作业无发布 secret，只有 contents 只读权限。发布作业依赖质量成功，只允许 main，重新构建同一提交并复查包；不缓存发布产物。
 - 发布串行且不取消在途操作。旧 main 提交若已被新提交取代则跳过；检查和推送之间仍可能出现新提交，最终由后续 main 运行刷新 release PR，不宣称跨远端变更原子发布。
 
-本地已有依赖时可运行：
+## 本地开发与检查
+
+本地使用与质量门禁相同的工具基线。安装锁定依赖后运行以下检查；也可通过 typecheck、lint、test、build 脚本分别执行。工程环境、构建顺序与 Host/Client 职责见 SPEC-001。
 
 ```sh
+pnpm install --frozen-lockfile
 pnpm run check
 pnpm run check:package
 pnpm run release:check
@@ -51,3 +54,4 @@ pnpm run release:version --dry-run
 - GitHub 工作流触发与令牌行为：https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow
 - npm provenance：https://docs.npmjs.com/generating-provenance-statements/
 - npm trusted publishing：https://docs.npmjs.com/trusted-publishers/
+- npm granular access token 创建与权限：https://docs.npmjs.com/creating-and-viewing-access-tokens/
