@@ -83,6 +83,7 @@ Semifold 是版本意图、版本更新、变更日志及发布编排的唯一�
 - 用户已确认产品验收并明确采用 MIT 公开 npm 分发；移除包 private 标记，保留第三方许可。验收结论来自用户，不替代本轮工程检查或真实 CI 执行证据，也不扩大支持范围。
 - 本地版本保持 0.0.0，现有 minor changeset 将下一版本规划为 0.1.0；不创建 major 版本意图，不手工更新或消费历史 changeset。未来版本按新增 changeset 正常演进，不把首次目标硬编码为永久发布限制。
 - GitHub Actions 在面向 main 的 PR、main 推送及手动触发时运行质量检查。固定 Node、pnpm、Semifold 与 Action 提交；执行冻结依赖安装、完整工程检查、实际打包清单验证、配置同步与版本模拟。质量作业只读，不读取发布 secret。
+- 项目脚本统一调用预构建安装实际提供的 semifold，不依赖其它安装方式可能额外提供的 smif 别名；安装后先运行 semifold --version，再安装依赖与执行检查。不增加软链接回退或修改 CLI 版本。
 - 仅 main 推送或 main 手动触发且质量作业成功后运行发布作业，重建同一提交的分发物。发布作业串行且不取消在途发布；陈旧主分支提交跳过，不从 PR、fork 或其它分支发布。
 - 发布作业只调用 smif ci：存在 changeset 时维护 release 分支及发布 PR，无 changeset 时发布已准备版本并创建 GitHub Release。不得串联本地 smif version/publish 消费同一批变更。仅发布步骤读取 npm secret，缺失凭据不影响创建版本 PR，但实际发布必须明确失败。
 - 使用 GITHUB_TOKEN 管理发布分支、PR 与 Release；机器人创建的发布 PR 可能需要维护者批准质量工作流后才能合并。发布后再有新 changeset 则重复同一流程；失败按 Semifold 预检查结果重跑，不重发已存在的 npm 版本。

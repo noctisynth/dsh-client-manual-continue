@@ -78,12 +78,12 @@
     "build": "tsdown && node scripts/generate-remote.ts && tsdown --config tsdown.client.config.ts",
     "check": "tsdown && node scripts/generate-remote.ts && tsdown --config tsdown.client.config.ts && tsrs --project tsconfig.host.json && tsrs --project tsconfig.client.json && tsrs --project tsconfig.client-tests.json && biome check . && node --test --test-isolation=none test/*.test.ts test/client/*.test.ts",
     "check:package": "node scripts/check-package.ts",
-    "changeset": "smif commit",
-    "release:check": "smif config sync --check",
-    "release:status": "smif status",
-    "release:version": "smif version",
-    "release:publish": "smif publish",
-    "release:ci": "smif ci"
+    "changeset": "semifold commit",
+    "release:check": "semifold config sync --check",
+    "release:status": "semifold status",
+    "release:version": "semifold version",
+    "release:publish": "semifold publish",
+    "release:ci": "semifold ci"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "4.1.0",

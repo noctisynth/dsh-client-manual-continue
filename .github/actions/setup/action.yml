@@ -18,6 +18,9 @@ runs:
       uses: noctisynth/setup-semifold@9dc3b2e2f25d5db332322b29c3d3436c857ca1d9
       with:
         version: '0.3.5'
+    - name: Verify Semifold executable
+      shell: bash
+      run: semifold --version
     - name: Install locked dependencies
       shell: bash
       run: pnpm install --frozen-lockfile

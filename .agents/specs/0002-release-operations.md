@@ -21,7 +21,7 @@ Semifold 是唯一版本和发布编排入口。代码变更连同 smif commit �
 ## 质量门禁
 
 - PR 目标 main、main 推送及手动工作流运行质量作业；没有路径过滤，不跳过纯配置改动。
-- 使用 Ubuntu 24.04、Node.js 24.21.0、包声明的 pnpm 11.28.5、Semifold 0.3.5；Action 实现按提交固定。完整工程脚本保留 tsdown、官方 Remote 生成、三个 tsrs 程序、Biome 与全部离线测试。
+- 使用 Ubuntu 24.04、Node.js 24.21.0、包声明的 pnpm 11.28.5、Semifold 0.3.5；Action 实现按提交固定。项目脚本调用官方预构建安装提供的 semifold，安装后先运行 semifold --version，不依赖 smif 别名。完整工程脚本保留 tsdown、官方 Remote 生成、三个 tsrs 程序、Biome 与全部离线测试。
 - check:package 使用 npm pack 的 dry-run 清单，不写发布包、不运行生命周期脚本。检查包身份、MIT/public 元数据、必要资源、声明文件和全部导出目标，拒绝工程上下文、测试、依赖或隐藏文件混入。它验证打包完整性，不代替真实安装验收。
 - 质量作业无发布 secret，只有 contents 只读权限。发布作业依赖质量成功，只允许 main，重新构建同一提交并复查包；不缓存发布产物。
 - 发布串行且不取消在途操作。旧 main 提交若已被新提交取代则跳过；检查和推送之间仍可能出现新提交，最终由后续 main 运行刷新 release PR，不宣称跨远端变更原子发布。

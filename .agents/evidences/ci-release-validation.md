@@ -42,3 +42,13 @@
 - GitHub 的令牌触发和批准行为：https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow
 
 仓库公开与工作流文件存在不表示自动化已启用或 npm 已发布。仍需维护者审阅并合入本地配置、准备 npm secret/发布权限，批准发布 PR 的检查并合并，随后核对 registry 与 GitHub Release。主分支保护及 npm 凭据未由本轮配置或验证。
+
+## 2026-11-11 首次 CI 失败与入口修复
+
+配置已于此前获授权提交并推送，基线为 7350d87。直接读取首次 Actions 运行记录及失败日志：工具和依赖安装成功，Check Semifold configuration 报 sh: 1: smif: not found；后续构建、类型、Biome、测试、打包及发布作业均被跳过，没有发布 PR 或 GitHub Release。运行记录：https://github.com/noctisynth/dsh-client-manual-continue/actions/runs/42865095139 。
+
+根因由官方 0.3.5 安装脚本确认：预构建安装只写入 semifold 可执行文件，官方 CI 模板同样调用 semifold ci；Cargo 安装则可提供 semifold 与 smif 两个入口。本地使用 Cargo 的 0.3.4 且两入口均存在，因此此前本地模拟未能发现 CI 安装方式的差异。参考：https://github.com/noctisynth/semifold/blob/semifold-v0.3.5/docs/public/install/install.sh 。
+
+用户明确授权修复并推送。最小修复统一六个项目脚本为 semifold，并在安装后、项目依赖安装前执行 semifold --version；不升级工具、不添加软链接或回退、不改 provenance、凭据或插件运行逻辑。增加两项入口回归。
+
+本地直接验证：目标 Node.js 24.21.0 的新增两项与既有打包校验六项合计八项通过；composite YAML 解析及安装顺序断言、配置同步、差异空白检查通过。semifold commit 创建 patch:fix 版本意图后，现有九个 changeset 仍规划 0.0.0 → 0.1.0，版本 dry-run 通过且没有消费 changeset。本机 CLI 仍为 0.3.4；未安装本地依赖，未据此声称完整工程检查或修复后的远程 CI 已通过。
