@@ -1,5 +1,13 @@
 # Changelog
 
+<!-- semifold:release version=0.1.1 -->
+## v0.1.1
+
+### Bug Fixes
+
+- [`2d3fc8a`](https://github.com/noctisynth/dsh-client-manual-continue/commit/2d3fc8a96a58e3b2c71bd5974f4231ee66a8a000): Upgrade DSH SDK dependencies to 0.2.2-rc.5 and support the 0.2.x series, including prereleases, without an exact Client release gate.
+<!-- semifold:release:end -->
+
 <!-- semifold:release version=0.1.0 -->
 ## v0.1.0
 
