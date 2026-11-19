@@ -15,9 +15,7 @@ export const inject = [
   'sessions',
   'conversation',
   'uiSession',
-  'modules',
 ]
-const targetRelease = '0.2.2-rc.1'
 
 /** Exported by a native lazy-CJS factory; loading the script never calls apply. */
 export function apply(ctx: Context): void {
@@ -37,16 +35,13 @@ export function apply(ctx: Context): void {
   const connection = ctx.get('connection')
   const slots = ctx.get('slots')
   const locale = ctx.get('locale')
-  const modules = ctx.get('modules')
   if (
     remote === undefined ||
     connection === undefined ||
     slots === undefined ||
-    locale === undefined ||
-    modules === undefined ||
-    modules.manifest.release?.version !== targetRelease
+    locale === undefined
   )
-    throw new Error('Manual continuation: unsupported Client capability or release')
+    throw new Error('Manual continuation: unsupported Client capability')
   const lifetime = new AbortController()
   ctx.effect(() => () => lifetime.abort())
   const inspection = new ContinuationInspection()

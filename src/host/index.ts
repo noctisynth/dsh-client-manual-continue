@@ -4,6 +4,7 @@ import type {} from '@deepseek-ai/dsh-api-gateway'
 import type { Session } from '@deepseek-ai/dsh-session'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { ProjectionHandle } from '@deepseek-ai/dsh-session-projection'
+import type {} from '@deepseek-ai/dsh-subagent'
 import type { RemoteInvocation } from '@deepseek-ai/dsh-typert-protocol'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import type { ContinuationState } from '../shared/continuation.ts'
@@ -13,6 +14,7 @@ import { isContinueRequest } from '../shared/protocol.ts'
 import type { ReceiptIdentity, ReceiptState } from '../shared/receipt.ts'
 import { reconcileReceipt } from '../shared/receipt.ts'
 import { createContinuationMessage } from './message.ts'
+import { legacyRootCheck } from './ownership.ts'
 import { qualificationDefinition, receiptDefinition } from './projection.ts'
 
 export type { ContinueAvailability, ContinueRequest, ContinueResult } from '../shared/protocol.ts'
@@ -81,6 +83,7 @@ class ManualContinueService extends TypertRemoteService implements ManualContinu
     ctx: Context,
     private readonly qualification: ProjectionHandle<ContinuationState>,
     private readonly receipts: ProjectionHandle<ReceiptState>,
+    private readonly isRoot: (agent: Agent) => boolean,
   ) {
     super(ctx, 'manualContinue')
     ctx.on('agent/disposed', ({ agent }) => {
@@ -111,17 +114,22 @@ class ManualContinueService extends TypertRemoteService implements ManualContinu
   }
 
   private exactAgent(sessionId: SessionId): Agent | undefined {
-    const agent = this.ctx.agents.get(sessionId)
-    if (
-      agent === undefined ||
-      agent.id !== sessionId ||
-      agent.ctx.fiber.state !== ACTIVE_FIBER_STATE ||
-      this.ctx.sessions.get(sessionId) !== agent.session ||
-      !this.ctx.agents.roots().includes(agent)
-    ) {
+    try {
+      const agent = this.ctx.agents.get(sessionId)
+      if (
+        agent === undefined ||
+        agent.id !== sessionId ||
+        agent.ctx.fiber.state !== ACTIVE_FIBER_STATE ||
+        this.ctx.sessions.get(sessionId) !== agent.session ||
+        !this.isRoot(agent)
+      ) {
+        return undefined
+      }
+      return agent
+    } catch {
+      // Missing/rejected ownership or a released service never grants root authority.
       return undefined
     }
-    return agent
   }
 
   private check(
@@ -343,5 +351,20 @@ class ManualContinueService extends TypertRemoteService implements ManualContinu
 export async function apply(ctx: Context): Promise<void> {
   const qualification = await ctx.sessionProjections.register(qualificationDefinition)
   const receipts = await ctx.sessionProjections.register(receiptDefinition)
-  new ManualContinueService(ctx, qualification, receipts)
+  const legacy = legacyRootCheck(ctx.agents)
+  if (legacy !== undefined) {
+    new ManualContinueService(ctx, qualification, receipts, legacy)
+    return
+  }
+  await ctx.inject(['subagents'], (scope) => {
+    // Read the traced service only inside the dependency-owned context. Its removal
+    // unpublishes this service and aborts its waits before a replacement can start.
+    const subagents = scope.subagents
+    new ManualContinueService(
+      scope,
+      qualification,
+      receipts,
+      (agent) => subagents.rootOf(agent) === agent,
+    )
+  })
 }

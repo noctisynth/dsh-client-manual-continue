@@ -35,7 +35,11 @@ try {
   assert.ok(
     isRecord(protocolManifest) && protocolManifest.name === '@deepseek-ai/dsh-typert-protocol',
   )
-  assert.equal(protocolManifest.version, '0.2.2-rc.1')
+  assert.ok(isRecord(manifest.devDependencies))
+  assert.equal(
+    protocolManifest.version,
+    manifest.devDependencies['@deepseek-ai/dsh-typert-protocol'],
+  )
   const protocolDirectory = join(staging, 'packages', 'typert-protocol')
   mkdirSync(protocolDirectory, { recursive: true })
   cpSync(join(protocolRoot, 'lib', 'types'), join(protocolDirectory, 'declarations'), {

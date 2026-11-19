@@ -3,10 +3,10 @@ Bundled Client dependencies
 
 The Client artifact includes code from:
 
-@deepseek-ai/dsh-typert-protocol 0.2.2-rc.1
+@deepseek-ai/dsh-typert-protocol 0.2.2-rc.5
 Copyright (c) 2026 DeepSeek
 
-zod 4.4.3
+zod 4.6.6
 Copyright (c) 2025 Colin McDonnell
 
 Both components are distributed under the following MIT License. This notice

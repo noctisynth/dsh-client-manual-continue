@@ -176,6 +176,69 @@ test('materialization shares real React, imports no Host/Node runtime, and does 
   )
 })
 
+test('Client activation uses capabilities rather than an exact release manifest', async () => {
+  for (const version of ['0.2.0', '0.2.2-rc.1', '0.2.2-rc.5', '0.2.99-rc.1', undefined]) {
+    const loaded = capture()
+    const require: NativeRequire = Object.assign((specifier: string) => nodeRequire(specifier), {
+      async: async (specifier: string) => nodeRequire(specifier),
+      asset: (reference: string) => reference,
+    })
+    const exports = loaded.registration.factory(require)
+    const apply = exports.apply
+    assert.ok(typeof apply === 'function')
+    assert.ok(Array.isArray(exports.inject))
+    assert.equal(exports.inject.includes('modules'), false)
+    const effects: (() => unknown)[] = []
+    const requested: string[] = []
+    const injected: string[][] = []
+    let mounted = false
+    const services: Record<string, unknown> = {
+      remote: {
+        async $mount() {
+          mounted = true
+          return async () => {}
+        },
+      },
+      connection: {},
+      slots: {},
+      locale: {},
+      modules: { manifest: { release: version === undefined ? undefined : { version } } },
+    }
+    Reflect.apply(apply, undefined, [
+      {
+        get(name: string) {
+          requested.push(name)
+          return services[name]
+        },
+        effect(callback: () => unknown) {
+          effects.push(callback)
+        },
+        inject(names: string[]) {
+          injected.push(names)
+        },
+      },
+    ])
+    assert.equal(requested.includes('modules'), false)
+    const mount = effects.at(-1)
+    assert.ok(mount !== undefined)
+    const unmount: unknown = await mount()
+    assert.equal(mounted, true, version)
+    assert.ok(injected.some((names) => names.includes('remote.manualContinue')))
+    assert.ok(typeof unmount === 'function')
+    await unmount()
+
+    for (const missing of ['remote', 'connection', 'slots', 'locale']) {
+      assert.throws(
+        () =>
+          Reflect.apply(apply, undefined, [
+            { get: (name: string) => (name === missing ? undefined : services[name]) },
+          ]),
+        /unsupported Client capability/,
+      )
+    }
+  }
+})
+
 test('production adapter contains semantic tokens but no build-specific CSS hashes', () => {
   assert.doesNotMatch(source, /GRgSLq_|JZLxKW_|uV2eYG_/)
   assert.match(source, /standardControls/)

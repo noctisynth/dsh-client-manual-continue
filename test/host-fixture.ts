@@ -23,6 +23,7 @@ import type { Session } from '@deepseek-ai/dsh-session'
 import { SessionStore } from '@deepseek-ai/dsh-session'
 import { SessionId } from '@deepseek-ai/dsh-session/types'
 import { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
+import type { SubagentRuntime } from '@deepseek-ai/dsh-subagent'
 import type { PeerId, PeerScope, RemoteInvocation } from '@deepseek-ai/dsh-typert-protocol'
 import * as host from 'dsh-client-manual-continue'
 import type { ContinueRequest } from '../src/shared/protocol.ts'
@@ -205,7 +206,34 @@ class TestGateway extends Service {
   }
 }
 
-export async function fixture(t: TestContext, options: { flush?: boolean } = {}) {
+/** Ownership-only service double: never creates subagents, providers or model requests. */
+class TestSubagents extends Service implements Pick<SubagentRuntime, 'rootOf'> {
+  readonly roots = new Map<Agent, Agent>()
+  rootReads = 0
+  rejectRoot = false
+  private released = false
+
+  constructor(ctx: Context) {
+    super(ctx, 'subagents')
+    ctx.effect(() => () => {
+      this.released = true
+    })
+  }
+
+  rootOf(agent: Agent): Agent {
+    this.rootReads += 1
+    const root = this.roots.get(agent)
+    if (this.released || this.rejectRoot || root === undefined) {
+      throw new Error('Offline ownership unavailable')
+    }
+    return root
+  }
+}
+
+export async function fixture(
+  t: TestContext,
+  options: { flush?: boolean; subagents?: boolean } = {},
+) {
   const ctx = new Context()
   const scopes: Scope[] = []
   const releases: Array<() => void> = []
@@ -218,6 +246,14 @@ export async function fixture(t: TestContext, options: { flush?: boolean } = {})
   await ctx.plugin(SessionProjectionRegistry)
   await ctx.plugin(AgentRegistry)
   const gateway = new TestGateway(ctx)
+  let subagentService: TestSubagents | undefined
+  const subagentFiber = ctx.plugin((scope) => {
+    subagentService = new TestSubagents(scope)
+  })
+  await subagentFiber
+  assert.ok(subagentService)
+  const subagents = subagentService
+  if (options.subagents === false) await subagentFiber.dispose()
   let coldCalls = 0
   ctx.agents.setFactory({
     async createAgent() {
@@ -238,6 +274,7 @@ export async function fixture(t: TestContext, options: { flush?: boolean } = {})
   const agentScope = createScope(ctx, {})
   scopes.push(agentScope)
   const agent = new TestAgent(session, agentScope.ctx)
+  subagents.roots.set(agent, agent)
   const registration = ctx.agents.register(agent)
   await registration
   let flushes = 0
@@ -301,6 +338,8 @@ export async function fixture(t: TestContext, options: { flush?: boolean } = {})
   return {
     ctx,
     gateway,
+    subagents,
+    subagentFiber,
     session,
     agent,
     registration,
@@ -324,6 +363,7 @@ export async function fixture(t: TestContext, options: { flush?: boolean } = {})
       const scope = createScope(ctx, {})
       scopes.push(scope)
       const parent = new TestAgent(ownerSession, scope.ctx)
+      subagents.roots.set(parent, parent)
       await ctx.agents.register(parent)
       return parent
     },
@@ -332,12 +372,8 @@ export async function fixture(t: TestContext, options: { flush?: boolean } = {})
       const scope = createScope(ctx, {})
       scopes.push(scope)
       const next = new TestAgent(agentSession, scope.ctx)
-      if (owner === undefined) await ctx.agents.register(next)
-      else {
-        const detach = ctx.agents.enter(next, owner)
-        releases.push(detach)
-        await ctx.agents.announce(next, 'startup')
-      }
+      subagents.roots.set(next, owner ?? next)
+      await ctx.agents.register(next)
       return next
     },
   }

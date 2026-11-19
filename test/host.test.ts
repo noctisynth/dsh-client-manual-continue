@@ -4,10 +4,11 @@ import { Session } from '@deepseek-ai/dsh-session'
 import { SessionSeq } from '@deepseek-ai/dsh-session/types'
 import * as host from 'dsh-client-manual-continue'
 import { createContinuationMessage } from '../src/host/message.ts'
-import { deferred, fixture, ordinaryInput } from './host-fixture.ts'
+import { deferred, fixture, ordinaryInput, TestAgent } from './host-fixture.ts'
 
-// Offline operation units: real Cordis/Session/Agent registries, a structural Agent and a
-// two-read Gateway double. These are not real Loader/Gateway or human-click acceptance tests.
+// Offline operation units: real Cordis/Session/Agent registries, a structural Agent,
+// ownership-only Subagent service and two-read Gateway doubles. No model can be called.
+// These are not real Loader/Gateway or human-click acceptance tests.
 
 test('availability proves only the caller and connection, without live Agent work or log effects', async (t) => {
   const f = await fixture(t)
@@ -144,9 +145,66 @@ test('a live child Agent cannot bypass its registered parent ownership', async (
   const f = await fixture(t)
   const owner = await f.owner()
   const child = await f.replacement(owner)
-  assert.ok(f.ctx.agents.isOwnedBy(child.id, owner))
+  assert.equal(f.subagents.rootOf(child), owner)
   assert.deepEqual(await f.receiver('submit').submit(f.request), { kind: 'unavailable' })
   assert.equal(child.followups, 0)
+})
+
+test('rootOf must return the exact Agent, not a different handle with the same id', async (t) => {
+  const f = await fixture(t)
+  const impostor = new TestAgent(f.session, f.agent.ctx)
+  f.subagents.roots.set(f.agent, impostor)
+  assert.deepEqual(await f.receiver('submit').submit(f.request), { kind: 'unavailable' })
+  assert.deepEqual(f.receiver('reconcile').reconcile(f.request), { kind: 'unavailable' })
+  assert.equal(f.agent.followups, 0)
+  assert.equal(f.coldCalls, 0)
+})
+
+for (const ownership of ['rejected', 'missing'] as const) {
+  test(`a ${ownership} rootOf fails closed without consulting session ancestry or resuming`, async (t) => {
+    const f = await fixture(t)
+    if (ownership === 'rejected') f.subagents.rejectRoot = true
+    else Object.defineProperty(f.subagents, 'rootOf', { value: undefined })
+    assert.deepEqual(await f.receiver('submit').submit(f.request), { kind: 'unavailable' })
+    assert.deepEqual(f.receiver('reconcile').reconcile(f.request), { kind: 'unavailable' })
+    assert.equal(f.agent.whenIdleCalls, 0)
+    assert.equal(f.agent.followups, 0)
+    assert.equal(f.coldCalls, 0)
+  })
+}
+
+test('missing Subagent service does not publish the new-SDK operation', async (t) => {
+  const f = await fixture(t, { subagents: false })
+  assert.equal(f.ctx.get('manualContinue'), undefined)
+  assert.equal(f.agent.whenIdleCalls, 0)
+  assert.equal(f.agent.followups, 0)
+  assert.equal(f.coldCalls, 0)
+})
+
+test('Subagent service release cancels a wait and revokes retained operation references', async (t) => {
+  const f = await fixture(t)
+  f.agent.idleGate = f.gate().promise
+  const retained = f.receiver('submit')
+  const result = retained.submit(f.request)
+  await f.agent.idleEntered.promise
+  await f.subagentFiber.dispose()
+  assert.deepEqual(await result, { kind: 'canceled' })
+  assert.equal(f.ctx.get('manualContinue'), undefined)
+  assert.deepEqual(await retained.submit(f.request), { kind: 'forbidden' })
+  assert.equal(f.agent.followups, 0)
+  assert.equal(f.agent.cancels, 0)
+  assert.equal(f.coldCalls, 0)
+})
+
+test('root ownership is rechecked after asynchronous terminal durability waiting', async (t) => {
+  const f = await fixture(t)
+  const owner = await f.owner()
+  f.setFlushHook((index) => {
+    if (index === 1) f.subagents.roots.set(f.agent, owner)
+  })
+  assert.deepEqual(await f.receiver('submit').submit(f.request), { kind: 'unavailable' })
+  assert.equal(f.agent.followups, 0)
+  assert.equal(f.coldCalls, 0)
 })
 
 test('a disposed Agent scope cannot retain authority through a live registry entry', async (t) => {
